@@ -1,7 +1,7 @@
 import { auth } from "~/server/auth";
 import { api, HydrateClient } from "~/trpc/server";
 
-export default async function Home() {
+export default async function Base() {
   const session = await auth();
 
   if (session?.user) {
@@ -10,7 +10,7 @@ export default async function Home() {
 
   return (
     <HydrateClient>
-      Main
+      Base
     </HydrateClient>
   );
 }
