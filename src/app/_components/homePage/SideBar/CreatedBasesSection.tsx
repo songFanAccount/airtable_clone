@@ -1,13 +1,13 @@
 import { HomeIcon, StarIcon } from "@heroicons/react/24/outline"
 import { PiShare as SharedIcon } from "react-icons/pi";
 import { HiOutlineUserGroup as WorkspacesIcon } from "react-icons/hi2";
-interface ButtonInfo {
+export interface SidebarButtonInfo {
   icon: React.ElementType,
   buttonText: string,
-  dim?: number
+  dim?: number | string
 }
 const CreatedBasesSection = () => {
-  const buttons: ButtonInfo[] = [
+  const buttons: SidebarButtonInfo[] = [
     {
       icon: HomeIcon,
       buttonText: "Home"
@@ -28,9 +28,9 @@ const CreatedBasesSection = () => {
   return (
     <div className="flex flex-col">
       {
-        buttons.map((buttonInfo, index) => {
-          const Icon = buttonInfo.icon
-          const dim = buttonInfo.dim ? buttonInfo.dim : 5
+        buttons.map((SidebarButtonInfo, index) => {
+          const Icon = SidebarButtonInfo.icon
+          const dim = SidebarButtonInfo.dim ? SidebarButtonInfo.dim : 5
           return (
             <Icon key={index} className={`w-${dim} h-${dim} flex-shrink-0 mb-5`}/>
           )

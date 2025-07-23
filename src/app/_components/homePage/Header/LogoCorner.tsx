@@ -13,8 +13,8 @@ const LogoCorner = () => {
           </button>
         }
         <div className="flex flex-row items-center gap-x-1 p-3">
-          <img src="/assets/airtable.svg" alt="Airtable" className="h-[24px] w-[24px]" />
-          <p className="font-medium text-lg pt-0.5">Airtable</p>
+          <img src="/assets/airtable.svg" alt="Airtable" className="h-[27px] w-[27px]" />
+          <p className="font-medium text-[20px] pt-0.5">Airtable</p>
         </div>
       </div>
     </div>
