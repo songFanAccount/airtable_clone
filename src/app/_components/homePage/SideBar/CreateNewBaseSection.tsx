@@ -25,7 +25,7 @@ const CreateNewBasesSection = () => {
       {
         buttons.map((SidebarButtonInfo, index) => {
           const Icon = SidebarButtonInfo.icon
-          const dim = SidebarButtonInfo.dim ? SidebarButtonInfo.dim : 4
+          const dim = SidebarButtonInfo.dim ?? 4
           return (
             <Icon key={index} className={`w-${dim} h-${dim} flex-shrink-0 mb-[18px] text-gray-400`}/>
           )

@@ -2,11 +2,11 @@
 
 import Header from "./Header/Header";
 import SideBar from "./SideBar/SideBar";
-import Content from "./Content";
+import Content from "./Content/Content";
 
 const HomePage = () => {
   return (
-  <div className="flex flex-col h-screen w-screen">
+  <div className="flex flex-col h-screen w-screen overflow-x-clip">
     <Header />
     <div className="flex flex-row h-full w-full">
       <SideBar />
