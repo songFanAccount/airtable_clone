@@ -1,7 +1,7 @@
 "use client"
 
 import Header from "./Header/Header";
-import SideBar from "./SideBar";
+import SideBar from "./SideBar/SideBar";
 import Content from "./Content";
 
 const HomePage = () => {
