@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { PiListLight as ListIcon, PiGridFour as GridIcon } from "react-icons/pi";
+import BasesList from "./BasesList";
+import BasesGrid from "./BasesGrid";
 
 
 const OpenedInDropdown = () => {
@@ -36,7 +38,8 @@ const ViewModes = ({ mode, setMode } : { mode: viewModes, setMode: (mode: viewMo
       {
         modes.map((modeInfo, index) => {
           const {Icon} = modeInfo
-          const selected = mode === index
+          const mappedMode = index === 0 ? viewModes.LIST : viewModes.GRID
+          const selected = mode === mappedMode
           return (
             <button key={index} className="p-1 rounded-full cursor-pointer"
               style={{
@@ -57,19 +60,26 @@ const ViewModes = ({ mode, setMode } : { mode: viewModes, setMode: (mode: viewMo
   )
 }
 
-const DisplayModes = () => {
-  const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
+const DisplayModes = ({ viewMode, setViewMode } : { viewMode: viewModes, setViewMode: (mode: viewModes) => void }) => {
   return (
-    <div className="flex flex-row justify-between">
+    <div className="flex flex-row justify-between items-center pb-[20px]">
       <OpenedInDropdown/>
       <ViewModes mode={viewMode} setMode={setViewMode}/>
     </div>
   )
 }
 const Bases = () => {
+  const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
   return (
     <div className="flex flex-col w-full">
-      <DisplayModes/>
+      <DisplayModes viewMode={viewMode} setViewMode={setViewMode}/>
+      {
+        viewMode === viewModes.LIST
+        ?
+          <BasesList/>
+        :
+          <BasesGrid/>
+      }
     </div>
   )
 }
