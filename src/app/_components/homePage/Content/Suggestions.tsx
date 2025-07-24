@@ -57,7 +57,7 @@ const Suggestions = () => {
   ];
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto mb-6">
       <div
         className="grid gap-4"
         style={{
