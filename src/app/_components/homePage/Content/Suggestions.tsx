@@ -1,6 +1,7 @@
 import { FaReact as OmniIcon } from "react-icons/fa";
 import { PiGridFour as TemplatesIcon, PiTable as NewAppIcon } from "react-icons/pi";
 import { GoArrowUp as UploadIcon } from "react-icons/go";
+import { useState } from "react";
 
 interface SuggestionInfo {
   Icon: React.ElementType;
@@ -11,13 +12,20 @@ interface SuggestionInfo {
 
 const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
   const { Icon, iconColor, title, description } = info;
+  const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
     <div
-      className="flex flex-col bg-white border rounded-[6px] p-4 w-full"
+      className="flex flex-col bg-white border rounded-[6px] p-4 w-full cursor-pointer"
       style={{
-        borderColor: "hsl(202, 10%, 88%)",
-        boxShadow: "0px 1px 3px rgba(0,0,0,0.1)",
+        borderColor: isHovered ? "#c0c1c2" : "hsl(202, 10%, 88%)",
+        boxShadow: isHovered 
+          ? 
+            "-1px -1px 1px rgba(0, 0, 0, 0.02), 1px 1px 2px rgba(0, 0, 0, 0.08), 2px 2px 4px rgba(0, 0, 0, 0.12), 4px 4px 8px rgba(0, 0, 0, 0.08)"
+          : 
+            "0px 1px 3px rgba(0,0,0,0.1)",
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex flex-row items-center">
         <Icon className="w-[20px] h-[20px] flex-shrink-0" style={{ color: iconColor }} />
@@ -57,7 +65,7 @@ const Suggestions = () => {
   ];
 
   return (
-    <div className="w-full overflow-x-auto mb-6 flex-shrink-0">
+    <div className="w-full overflow-x-auto py-1 mb-6 flex-shrink-0">
       <div
         className="grid gap-4"
         style={{
