@@ -10,12 +10,11 @@ interface SuggestionInfo {
   description: string;
 }
 
-const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
-  const { Icon, iconColor, title, description } = info;
+export const HomeBoxWrapper = ({ children, moreStyle } : { children: React.ReactElement, moreStyle?: string }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
     <div
-      className="flex flex-col bg-white border rounded-[6px] p-4 w-full cursor-pointer"
+      className={`bg-white border rounded-[6px] w-full cursor-pointer ${moreStyle}`}
       style={{
         borderColor: isHovered ? "#c0c1c2" : "hsl(202, 10%, 88%)",
         boxShadow: isHovered 
@@ -27,12 +26,22 @@ const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex flex-row items-center">
-        <Icon className="w-[20px] h-[20px] flex-shrink-0" style={{ color: iconColor }} />
-        <p className="ml-2 font-semibold text-[16px]">{title}</p>
-      </div>
-      <p className="text-[14px] text-[#616670] mt-1">{description}</p>
+      {children}
     </div>
+  )
+}
+const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
+  const { Icon, iconColor, title, description } = info;
+  return (
+    <HomeBoxWrapper moreStyle="p-4">
+      <div className="flex flex-col w-full">
+        <div className="flex flex-row items-center">
+          <Icon className="w-[20px] h-[20px] flex-shrink-0" style={{ color: iconColor }} />
+          <p className="ml-2 font-semibold text-[16px]">{title}</p>
+        </div>
+        <p className="text-[14px] text-[#616670] mt-1">{description}</p>
+      </div>
+    </HomeBoxWrapper>
   );
 };
 
@@ -65,7 +74,7 @@ const Suggestions = () => {
   ];
 
   return (
-    <div className="w-full overflow-x-auto py-1 mb-6 flex-shrink-0">
+    <div className="w-full overflow-x-hidden py-1 mb-6 flex-shrink-0">
       <div
         className="grid gap-4"
         style={{

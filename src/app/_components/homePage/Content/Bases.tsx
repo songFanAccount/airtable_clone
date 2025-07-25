@@ -68,17 +68,36 @@ const DisplayModes = ({ viewMode, setViewMode } : { viewMode: viewModes, setView
     </div>
   )
 }
+
+export interface BaseInfo {
+  name: string,
+  lastOpened: string,
+  workspace: string
+}
+
 const Bases = () => {
   const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
+  const tempBases: BaseInfo[] = [
+    {
+      name: "Untitled Base",
+      lastOpened: "just now",
+      workspace: "My First Workspace"
+    },
+    {
+      name: "layout",
+      lastOpened: "2 hours ago",
+      workspace: "My First Workspace"
+    },
+  ]
   return (
     <div className="flex flex-col w-full">
       <DisplayModes viewMode={viewMode} setViewMode={setViewMode}/>
       {
         viewMode === viewModes.LIST
         ?
-          <BasesList/>
+          <BasesList bases={tempBases}/>
         :
-          <BasesGrid/>
+          <BasesGrid bases={tempBases}/>
       }
     </div>
   )

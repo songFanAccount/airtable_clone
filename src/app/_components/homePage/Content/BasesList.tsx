@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { StarIcon } from "@heroicons/react/24/outline"
 import { LuEllipsis as ActionsIcon } from "react-icons/lu";
+import type { BaseInfo } from "./Bases";
 
 interface ColumnsLayoutProps {
   el1: React.ReactElement,
@@ -56,12 +57,6 @@ function openBase() {
   console.log("open base")
 }
 
-interface BaseInfo {
-  name: string,
-  lastOpened: string,
-  workspace: string
-}
-
 const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
@@ -110,25 +105,13 @@ const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
   )
 }
 
-const BasesList = () => {
-  const tempBases: BaseInfo[] = [
-    {
-      name: "Untitled Base",
-      lastOpened: "just now",
-      workspace: "My First Workspace"
-    },
-    {
-      name: "layout",
-      lastOpened: "2 hours ago",
-      workspace: "My First Workspace"
-    },
-  ]
+const BasesList = ({ bases } : { bases: BaseInfo[] }) => {
   return (
-    <div className="flex flex-col px-1">
+    <div className="flex flex-col px-1 min-h-[500px]">
       <TitlesRow/>
       <div className="flex flex-col">
         {
-          tempBases.map((baseInfo, index) => <BaseRow key={index} {...baseInfo}/>)
+          bases.map((baseInfo, index) => <BaseRow key={index} {...baseInfo}/>)
         }
       </div>
     </div>
