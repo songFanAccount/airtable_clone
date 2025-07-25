@@ -3,11 +3,14 @@ import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { PiListLight as ListIcon, PiGridFour as GridIcon } from "react-icons/pi";
 import BasesList from "./BasesList";
 import BasesGrid from "./BasesGrid";
+import { toastNoUI } from "~/hooks/helpers";
 
 
 const OpenedInDropdown = () => {
   return (
-    <button className="flex flex-row items-center gap-1 group text-gray-600 cursor-pointer">
+    <button className="flex flex-row items-center gap-1 group text-gray-600 cursor-pointer"
+      onClick={toastNoUI}
+    >
       <p className="text-[15px] group-hover:text-[rgb(29,31,37)]">Opened anytime</p>
       <DropdownIcon className="text-[16px] group-hover:text-[rgb(29,31,37)]"/>
     </button>
@@ -33,6 +36,8 @@ const ViewModes = ({ mode, setMode } : { mode: viewModes, setMode: (mode: viewMo
       helperText: "View items in a grid"
     }
   ]
+  const [listHovered, setListHovered] = useState<boolean>(false)
+  const [gridHovered, setGridHovered] = useState<boolean>(false)
   return (
     <div className="flex flex-row items-center">
       {
@@ -40,16 +45,20 @@ const ViewModes = ({ mode, setMode } : { mode: viewModes, setMode: (mode: viewMo
           const {Icon} = modeInfo
           const mappedMode = index === 0 ? viewModes.LIST : viewModes.GRID
           const selected = mode === mappedMode
+          const hovered = index === 0 ? listHovered : gridHovered
+          const setHoveredFunc = index === 0 ? setListHovered : setGridHovered
           return (
             <button key={index} className="p-1 rounded-full cursor-pointer"
               style={{
                 backgroundColor: selected ? 'rgba(0, 0, 0, 0.05)' : undefined
               }}
               onClick={() => setMode(index)}
+              onMouseEnter={() => setHoveredFunc(true)}
+              onMouseLeave={() => setHoveredFunc(false)}
             >
               <Icon className="w-5 h-5"
                 style={{
-                  color: selected ? "black" : "#55565b"
+                  color: selected || hovered ? "black" : "#55565b"
                 }}
               />
             </button>

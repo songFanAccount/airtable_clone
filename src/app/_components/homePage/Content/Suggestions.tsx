@@ -2,6 +2,7 @@ import { FaReact as OmniIcon } from "react-icons/fa";
 import { PiGridFour as TemplatesIcon, PiTable as NewAppIcon } from "react-icons/pi";
 import { GoArrowUp as UploadIcon } from "react-icons/go";
 import { useState } from "react";
+import { toastNoWay } from "~/hooks/helpers";
 
 interface SuggestionInfo {
   Icon: React.ElementType;
@@ -34,13 +35,15 @@ const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
   const { Icon, iconColor, title, description } = info;
   return (
     <HomeBoxWrapper moreStyle="p-4">
-      <div className="flex flex-col w-full">
+      <button className="flex flex-col items-start w-full text-left cursor-pointer"
+        onClick={toastNoWay}
+      >
         <div className="flex flex-row items-center">
           <Icon className="w-[20px] h-[20px] flex-shrink-0" style={{ color: iconColor }} />
-          <p className="ml-2 font-semibold text-[16px]">{title}</p>
+          <p className="ml-2 font-semibold text-[15px]">{title}</p>
         </div>
-        <p className="text-[14px] text-[#616670] mt-1">{description}</p>
-      </div>
+        <p className="text-[13px] text-[#616670] mt-1">{description}</p>
+      </button>
     </HomeBoxWrapper>
   );
 };

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { StarIcon } from "@heroicons/react/24/outline"
 import { LuEllipsis as ActionsIcon } from "react-icons/lu";
 import type { BaseInfo } from "./Bases";
+import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers";
 
 interface ColumnsLayoutProps {
   el1: React.ReactElement,
@@ -54,7 +55,7 @@ const TitlesRow = () => {
 }
 
 function openBase() {
-  console.log("open base")
+  toastTODO("Open base")
 }
 
 const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
@@ -87,10 +88,10 @@ const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
               {
                 isHovered &&
                 <div className="flex flex-row items-center">
-                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation()}}>
+                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation(); toastNoFunction()}}>
                     <StarIcon className=" ml-2 w-4 h-4 text-gray-600"/>
                   </button>
-                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation()}}>
+                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation(); toastNoUI()}}>
                     <ActionsIcon className="w-4 h-4 text-gray-600"/>
                   </button>
                 </div>

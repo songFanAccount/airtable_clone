@@ -1,7 +1,7 @@
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useState } from "react";
-import { useSmallerThan600 } from "~/hooks/helpers";
+import { toastNoUI, useSmallerThan600 } from "~/hooks/helpers";
 
 const LogoCorner = () => {
   const showExpandButton = !useSmallerThan600()
@@ -18,6 +18,7 @@ const LogoCorner = () => {
             }}
             onMouseEnter={() => setExpandIsHovered(true)}
             onMouseLeave={() => setExpandIsHovered(false)}
+            onClick={toastNoUI}
           >
             <Bars3Icon className="w-5 h-5"/>
           </button>

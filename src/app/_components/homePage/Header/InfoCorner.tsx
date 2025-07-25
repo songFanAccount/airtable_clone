@@ -1,6 +1,7 @@
 import { QuestionMarkCircleIcon, BellIcon } from "@heroicons/react/24/outline";
 import ProfileButton from "./ProfileButton";
 import { useEffect, useState } from "react";
+import { toastNoUI } from "~/hooks/helpers";
 const InfoCorner = () => {
   const [screenWidth, setScreenWidth] = useState<number>(0);
   const [helpHovered, setHelpHovered] = useState<boolean>(false)
@@ -21,6 +22,7 @@ const InfoCorner = () => {
           style={{
             backgroundColor: helpHovered ? "#e5e5e5" : undefined
           }}
+          onClick={toastNoUI}
         >
           {
             screenWidth < 1460
@@ -42,6 +44,7 @@ const InfoCorner = () => {
             backgroundColor: notiHovered ? "#e5e9f0" : undefined,
             borderColor: "hsl(202, 10%, 88%)"
           }}
+          onClick={toastNoUI}
         >
           <BellIcon className="w-4 h-4 flex-shrink-0"/>
         </button>

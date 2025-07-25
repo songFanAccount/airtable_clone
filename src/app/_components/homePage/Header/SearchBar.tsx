@@ -1,5 +1,6 @@
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useState } from "react";
+import { toastNoUI } from "~/hooks/helpers";
 
 const SearchBar = () => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
@@ -15,6 +16,7 @@ const SearchBar = () => {
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={toastNoUI}
     >
       <MagnifyingGlassIcon className="w-4 h-4 flex-shrink-0"/>
       <span
