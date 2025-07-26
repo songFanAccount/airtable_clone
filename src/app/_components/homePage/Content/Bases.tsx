@@ -3,7 +3,7 @@ import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { PiListLight as ListIcon, PiGridFour as GridIcon } from "react-icons/pi";
 import BasesList from "./BasesList";
 import BasesGrid from "./BasesGrid";
-import { toastNoUI } from "~/hooks/helpers";
+import { toastNoUI, toastNoWay } from "~/hooks/helpers";
 
 
 const OpenedInDropdown = () => {
@@ -78,6 +78,26 @@ const DisplayModes = ({ viewMode, setViewMode } : { viewMode: viewModes, setView
   )
 }
 
+
+const NoBasesEl = () => {
+  return (
+    <div className="flex w-full h-full justify-center items-center">
+      <div className="flex flex-col items-center">
+        <span className="text-[21px] mb-2">You haven&apos;t opened anything recently</span>
+        <span className="text-[13px] mb-6 text-gray-600">Apps that you have recently opened will appear here.</span>
+        <button className="px-3 h-[32px] rounded-[6px] bg-white border cursor-pointer"
+          style={{
+            borderColor: "#d9dadb",
+            boxShadow: "0px 1px 3px rgba(0,0,0,0.1)"
+          }}
+          onClick={toastNoWay}
+        >
+          <span className="text-[13px] text-gray-800">Go to all workspaces</span>
+        </button>
+      </div>
+    </div>
+  )
+}
 export interface BaseInfo {
   name: string,
   lastOpened: string,
@@ -86,27 +106,31 @@ export interface BaseInfo {
 
 const Bases = () => {
   const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
-  const tempBases: BaseInfo[] = [
-    {
-      name: "Untitled Base",
-      lastOpened: "just now",
-      workspace: "My First Workspace"
-    },
-    {
-      name: "layout",
-      lastOpened: "2 hours ago",
-      workspace: "My First Workspace"
-    },
+  const bases: BaseInfo[] = [
+    // {
+    //   name: "Untitled Base",
+    //   lastOpened: "just now",
+    //   workspace: "My First Workspace"
+    // },
+    // {
+    //   name: "layout",
+    //   lastOpened: "2 hours ago",
+    //   workspace: "My First Workspace"
+    // },
   ]
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full h-full">
       <DisplayModes viewMode={viewMode} setViewMode={setViewMode}/>
       {
-        viewMode === viewModes.LIST
+        bases.length === 0
         ?
-          <BasesList bases={tempBases}/>
+          <NoBasesEl/>
         :
-          <BasesGrid bases={tempBases}/>
+          viewMode === viewModes.LIST
+          ?
+            <BasesList bases={bases}/>
+          :
+            <BasesGrid bases={bases}/>
       }
     </div>
   )
