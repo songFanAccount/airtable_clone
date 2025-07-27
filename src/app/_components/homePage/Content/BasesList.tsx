@@ -58,7 +58,7 @@ function openBase() {
   toastTODO("Open base")
 }
 
-const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
+const BaseRow = ({ name } : BaseInfo) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
@@ -99,8 +99,8 @@ const BaseRow = ({ name, lastOpened, workspace } : BaseInfo) => {
             </div>
           </div>
         }
-        el2={<span className="text-[13px] text-gray-600">Opened {lastOpened}</span>}
-        el3={<span className="text-[13px] text-gray-600">{workspace}</span>}
+        el2={<span className="text-[13px] text-gray-600">Opened X time ago</span>}
+        el3={<span className="text-[13px] text-gray-600">My First Workspace</span>}
       />
     </div>
   )

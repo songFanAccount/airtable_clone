@@ -7,7 +7,7 @@ import { LuEllipsis as ActionsIcon } from "react-icons/lu"
 import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers"
 
 const BaseBox = ({ info } : { info: BaseInfo }) => {
-  const { name, lastOpened } = info
+  const { name } = info
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
@@ -35,7 +35,7 @@ const BaseBox = ({ info } : { info: BaseInfo }) => {
                   <span className="text-[11px]">Open data</span>
                 </div>
               :
-                <span className="text-[11px] text-gray-600">Opened {lastOpened}</span>
+                <span className="text-[11px] text-gray-600">Opened X time ago</span>
             }
           </div>
         </div>

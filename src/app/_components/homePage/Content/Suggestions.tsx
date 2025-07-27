@@ -3,22 +3,26 @@ import { PiGridFour as TemplatesIcon, PiTable as NewAppIcon } from "react-icons/
 import { GoArrowUp as UploadIcon } from "react-icons/go";
 import { useState } from "react";
 import { toastNoWay } from "~/hooks/helpers";
+import { api } from "~/trpc/react";
 
 interface SuggestionInfo {
   Icon: React.ElementType;
   iconColor: string;
   title: string;
   description: string;
+  func: () => void;
+  isDisabled?: boolean
 }
 
-export const HomeBoxWrapper = ({ children, moreStyle } : { children: React.ReactElement, moreStyle?: string }) => {
+export const HomeBoxWrapper = ({ children, isDisabled=false, moreStyle } : { children: React.ReactElement, isDisabled?: boolean, moreStyle?: string }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
     <div
       className={`bg-white border rounded-[6px] w-full cursor-pointer ${moreStyle}`}
       style={{
-        borderColor: isHovered ? "#c0c1c2" : "hsl(202, 10%, 88%)",
-        boxShadow: isHovered 
+        cursor: (isHovered && !isDisabled) ? "pointer" : "not-allowed",
+        borderColor: (isHovered && !isDisabled) ? "#c0c1c2" : "hsl(202, 10%, 88%)",
+        boxShadow: (isHovered && !isDisabled)
           ? 
             "-1px -1px 1px rgba(0, 0, 0, 0.02), 1px 1px 2px rgba(0, 0, 0, 0.08), 2px 2px 4px rgba(0, 0, 0, 0.12), 4px 4px 8px rgba(0, 0, 0, 0.08)"
           : 
@@ -32,11 +36,12 @@ export const HomeBoxWrapper = ({ children, moreStyle } : { children: React.React
   )
 }
 const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
-  const { Icon, iconColor, title, description } = info;
+  const { Icon, iconColor, title, description, func, isDisabled=false } = info;
   return (
-    <HomeBoxWrapper moreStyle="p-4">
-      <button className="flex flex-col items-start w-full text-left cursor-pointer"
-        onClick={toastNoWay}
+    <HomeBoxWrapper moreStyle="p-4" isDisabled={isDisabled}>
+      <button className={`flex flex-col items-start w-full text-left ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        onClick={func}
+        disabled={isDisabled}
       >
         <div className="flex flex-row items-center">
           <Icon className="w-[20px] h-[20px] flex-shrink-0" style={{ color: iconColor }} />
@@ -49,30 +54,42 @@ const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
 };
 
 const Suggestions = () => {
+  const utils = api.useUtils()
+  const { mutate: createBase, status } = api.base.create.useMutation({
+    onSuccess: async () => {
+      await utils.base.getAll.invalidate()
+    }
+  })
+  const isLoading = status === "pending"
   const suggestions: SuggestionInfo[] = [
     {
       Icon: OmniIcon,
       iconColor: "#dd04a8",
       title: "Start with Omni",
       description: "Use AI to build a custom app tailored to your workflow.",
+      func: toastNoWay
     },
     {
       Icon: TemplatesIcon,
       iconColor: "#63498d",
       title: "Start with templates",
       description: "Select a template to get started and customize as you go.",
+      func: toastNoWay
     },
     {
       Icon: UploadIcon,
       iconColor: "#0d7f78",
       title: "Quickly upload",
       description: "Easily migrate your existing projects in just a few minutes.",
+      func: toastNoWay
     },
     {
       Icon: NewAppIcon,
       iconColor: "#3b66a3",
       title: "Build an app on your own",
       description: "Start with a blank app and build your ideal workflow.",
+      func: () => createBase({ name: "Untitled Base" }),
+      isDisabled: isLoading
     },
   ];
 

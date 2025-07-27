@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { PiListLight as ListIcon, PiGridFour as GridIcon } from "react-icons/pi";
+import { Loader2 as LoadingIcon } from "lucide-react";
 import BasesList from "./BasesList";
 import BasesGrid from "./BasesGrid";
 import { toastNoUI, toastNoWay } from "~/hooks/helpers";
-
-
+import { api } from "~/trpc/react";
 const OpenedInDropdown = () => {
   return (
     <button className="flex flex-row items-center gap-1 group text-gray-600 cursor-pointer"
@@ -99,38 +99,39 @@ const NoBasesEl = () => {
   )
 }
 export interface BaseInfo {
-  name: string,
-  lastOpened: string,
-  workspace: string
+  name: string
 }
 
 const Bases = () => {
-  const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
-  const bases: BaseInfo[] = [
-    {
-      name: "Untitled Base",
-      lastOpened: "just now",
-      workspace: "My First Workspace"
-    },
-    {
-      name: "layout",
-      lastOpened: "2 hours ago",
-      workspace: "My First Workspace"
-    },
-  ]
+  const [viewMode, setViewMode] = useState<viewModes>(viewModes.GRID)
+  const { data: basesData, isLoading } = api.base.getAll.useQuery()
+  const bases = basesData
+    ?
+      basesData.map((baseData) => baseData as BaseInfo)
+    :
+      []
   return (
     <div className="flex flex-col w-full h-full">
       <DisplayModes viewMode={viewMode} setViewMode={setViewMode}/>
       {
-        bases.length === 0
+        isLoading
         ?
-          <NoBasesEl/>
+          <div className="w-full h-full flex justify-center items-center">
+            <div className="flex flex-row items-center gap-x-4">
+              <span className="text-[24px]">Loading all bases...</span>
+              <LoadingIcon className="w-8 h-8 animate-spin"/>
+            </div>
+          </div>
         :
-          viewMode === viewModes.LIST
+          bases && bases.length === 0
           ?
-            <BasesList bases={bases}/>
+            <NoBasesEl/>
           :
-            <BasesGrid bases={bases}/>
+            viewMode === viewModes.LIST
+            ?
+              <BasesList bases={bases}/>
+            :
+              <BasesGrid bases={bases}/>
       }
     </div>
   )
