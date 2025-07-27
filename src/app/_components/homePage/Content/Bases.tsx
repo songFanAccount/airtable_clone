@@ -113,7 +113,8 @@ const NoBasesEl = ({ loggedIn, loading } : { loggedIn: boolean, loading: boolean
   )
 }
 export interface BaseInfo {
-  name: string
+  id: string,
+  name: string,
 }
 
 const Bases = () => {

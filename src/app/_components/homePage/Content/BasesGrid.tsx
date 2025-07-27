@@ -3,19 +3,25 @@ import type { BaseInfo } from "./Bases"
 import { HomeBoxWrapper } from "./Suggestions"
 import { GoDatabase as BaseIcon } from "react-icons/go"
 import { StarIcon } from "@heroicons/react/24/outline"
-import { LuEllipsis as ActionsIcon } from "react-icons/lu"
-import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers"
+import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
+import { toastNoFunction, toastTODO } from "~/hooks/helpers"
+import { useSession } from "next-auth/react"
+import { api } from "~/trpc/react"
 
-const BaseBox = ({ info } : { info: BaseInfo }) => {
-  const { name } = info
+interface BaseBoxProps extends BaseInfo {
+  deleteBase: (id: string) => void,
+  isDisabled: boolean
+}
+const BaseBox = ({ name, id, deleteBase, isDisabled } : BaseBoxProps) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
+  const isActive = isHovered && !isDisabled
   return (
-    <HomeBoxWrapper>
+    <HomeBoxWrapper isDisabled={isDisabled}>
       <div className="flex flex-row h-[92px] items-center relative"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => toastTODO("Open base")}
+        onClick={() => {if(!isDisabled) toastTODO("Open base")}}
       >
         <div className="w-[92px] h-[92px] flex justify-center items-center">
           <div className="flex justify-center items-center w-[56px] h-[56px] rounded-[12px] bg-[#99455a] text-white border-box">
@@ -40,12 +46,13 @@ const BaseBox = ({ info } : { info: BaseInfo }) => {
           </div>
         </div>
         {
-          isHovered &&
+          isActive &&
           <div className="absolute top-0 right-0 mt-4 mr-4 ml-1">
-            <div className="flex flex-row items-center gap-x-[6px]">
-              <button className="w-[28px] h-[28px] flex justify-center items-center border rounded-[6px] text-gray-800 cursor-pointer"
+            <div className="flex flex-row items-center gap-x-[6px] text-gray-800">
+              <button className="w-[28px] h-[28px] flex justify-center items-center border rounded-[6px]"
                 style={{
-                  borderColor: "#d5d5d5"
+                  borderColor: "#d5d5d5",
+                  cursor: isActive ? "pointer" : "not-allowed",
                 }}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -54,16 +61,14 @@ const BaseBox = ({ info } : { info: BaseInfo }) => {
               >              
                 <StarIcon className="w-[16px] h-[16px]"/>
               </button>
-              <button className="w-[28px] h-[28px] flex justify-center items-center border rounded-[6px] cursor-pointer"
+              <button className="w-[28px] h-[28px] flex justify-center items-center border rounded-[6px]"
                 style={{
-                  borderColor: "#d5d5d5"
+                  borderColor: "#d5d5d5",
+                  cursor: isActive ? "pointer" : "not-allowed",
                 }}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  toastNoUI()
-                }}
-              >           
-                <ActionsIcon className="w-[14px] h-[14px]"/>
+                onClick={async (event) => {event.stopPropagation(); deleteBase(id)}}
+              >
+                <DeleteIcon className="w-4 h-4"/>
               </button>
             </div>
           </div>
@@ -73,6 +78,16 @@ const BaseBox = ({ info } : { info: BaseInfo }) => {
   )
 }
 const BasesGrid = ({ bases } : { bases: BaseInfo[] }) => {
+  const { data: session } = useSession()
+  const utils = api.useUtils();
+  const { mutate: deleteBase, isPending } = api.base.delete.useMutation({
+    onSuccess: async () => {
+      await utils.base.getAll.invalidate();
+    },
+  });
+  const { isFetching } = api.base.getAll.useQuery(undefined, {
+    enabled: !!session?.user,
+  });
   return (
     <div className="w-full px-1 min-h-[500px]">
       <div className="w-full overflow-x-hidden py-1 mb-6 flex-shrink-0">
@@ -84,7 +99,7 @@ const BasesGrid = ({ bases } : { bases: BaseInfo[] }) => {
           }}
         >
           {bases.map((baseInfo, index) => (
-            <BaseBox key={index} info={baseInfo} />
+            <BaseBox key={index} isDisabled={isPending || isFetching} deleteBase={(id: string) => deleteBase({id})} {...baseInfo} />
           ))}
         </div>
       </div>

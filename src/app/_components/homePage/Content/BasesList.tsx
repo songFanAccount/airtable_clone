@@ -1,8 +1,10 @@
 import { useState } from "react"
 import { StarIcon } from "@heroicons/react/24/outline"
-import { LuEllipsis as ActionsIcon } from "react-icons/lu";
+import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import type { BaseInfo } from "./Bases";
-import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers";
+import { toastNoFunction, toastTODO } from "~/hooks/helpers";
+import { api } from "~/trpc/react";
+import { useSession } from "next-auth/react";
 
 interface ColumnsLayoutProps {
   el1: React.ReactElement,
@@ -58,17 +60,23 @@ function openBase() {
   toastTODO("Open base")
 }
 
-const BaseRow = ({ name } : BaseInfo) => {
+interface BaseRowProps extends BaseInfo {
+  deleteBase: (id: string) => void,
+  isDisabled: boolean
+}
+const BaseRow = ({ name, id, deleteBase, isDisabled } : BaseRowProps) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
+  const isActive = isHovered && !isDisabled
   return (
-    <div className="rounded-[6px] cursor-pointer"
+    <div className="rounded-[6px]"
       style={{
+        cursor: isActive ? "pointer" : "not-allowed",
         backgroundColor: isHovered ? "#ecedee" : undefined
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => openBase()}
+      onClick={() => {if(!isDisabled) openBase()}}
     >
       <ColumnsLayout
         height={44}
@@ -83,16 +91,26 @@ const BaseRow = ({ name } : BaseInfo) => {
             <div className="w-full flex flex-row items-center justify-between px-3">
               <div className="text-[13px] flex flex-row items-center">
                 <span className="font-semibold min-w-0 truncate flex-shrink-1">{name}</span>
-                {isHovered && <span className="text-gray-600 ml-3 whitespace-nowrap min-w-[62px]">Open data</span>}
+                {isActive && <span className="text-gray-600 ml-3 whitespace-nowrap min-w-[62px]">Open data</span>}
               </div>
               {
-                isHovered &&
-                <div className="flex flex-row items-center">
-                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation(); toastNoFunction()}}>
-                    <StarIcon className=" ml-2 w-4 h-4 text-gray-600"/>
+                isActive &&
+                <div className="flex flex-row items-center text-gray-600">
+                  <button className="flex justify-center align-center p-1" 
+                    style={{
+                      cursor: isActive ? "pointer" : "not-allowed",
+                    }}
+                    onClick={(event) => {event.stopPropagation(); toastNoFunction()}}
+                  >
+                    <StarIcon className=" ml-2 w-4 h-4"/>
                   </button>
-                  <button className="flex justify-center align-center cursor-pointer p-1" onClick={(event) => {event.stopPropagation(); toastNoUI()}}>
-                    <ActionsIcon className="w-4 h-4 text-gray-600"/>
+                  <button className="flex justify-center align-center p-1"
+                    style={{
+                      cursor: isActive ? "pointer" : "not-allowed",
+                    }}
+                    onClick={async (event) => {event.stopPropagation(); deleteBase(id)}}
+                  >
+                    <DeleteIcon className="w-4 h-4"/>
                   </button>
                 </div>
               }
@@ -107,12 +125,22 @@ const BaseRow = ({ name } : BaseInfo) => {
 }
 
 const BasesList = ({ bases } : { bases: BaseInfo[] }) => {
+  const { data: session } = useSession()
+  const utils = api.useUtils();
+  const { mutate: deleteBase, isPending } = api.base.delete.useMutation({
+    onSuccess: async () => {
+      await utils.base.getAll.invalidate();
+    },
+  });
+  const { isFetching } = api.base.getAll.useQuery(undefined, {
+    enabled: !!session?.user,
+  });
   return (
     <div className="flex flex-col px-1 min-h-[500px]">
       <TitlesRow/>
       <div className="flex flex-col">
         {
-          bases.map((baseInfo, index) => <BaseRow key={index} {...baseInfo}/>)
+          bases.map((baseInfo, index) => <BaseRow key={index} isDisabled={isPending || isFetching} deleteBase={(id: string) => deleteBase({id})} {...baseInfo}/>)
         }
       </div>
     </div>

@@ -36,7 +36,7 @@ export function Popover({
   return (
     <div
       ref={popoverRef}
-      className="absolute z-50 bg-white border shadow-lg rounded-[12px] p-3 min-w-[120px]"
+      className="absolute z-[99999] bg-white border shadow-lg rounded-[12px] p-3 min-w-[120px]"
       style={{
         borderColor: "hsl(202, 10%, 88%)",
         ...moreStyle
