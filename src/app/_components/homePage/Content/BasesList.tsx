@@ -2,9 +2,10 @@ import { useState } from "react"
 import { StarIcon } from "@heroicons/react/24/outline"
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import type { BaseInfo } from "./Bases";
-import { toastNoFunction, toastTODO } from "~/hooks/helpers";
+import { toastNoFunction } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface ColumnsLayoutProps {
   el1: React.ReactElement,
@@ -56,10 +57,6 @@ const TitlesRow = () => {
   )
 }
 
-function openBase() {
-  toastTODO("Open base")
-}
-
 interface BaseRowProps extends BaseInfo {
   deleteBase: (id: string) => void,
   isDisabled: boolean
@@ -68,6 +65,10 @@ const BaseRow = ({ name, id, deleteBase, isDisabled } : BaseRowProps) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const isActive = isHovered && !isDisabled
+  const router = useRouter()
+  function openBase(id: string) {
+    router.push(`/base/${id}`)
+  }
   return (
     <div className="rounded-[6px]"
       style={{
@@ -76,7 +77,7 @@ const BaseRow = ({ name, id, deleteBase, isDisabled } : BaseRowProps) => {
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => {if(!isDisabled) openBase()}}
+      onClick={() => {if(!isDisabled) openBase(id)}}
     >
       <ColumnsLayout
         height={44}

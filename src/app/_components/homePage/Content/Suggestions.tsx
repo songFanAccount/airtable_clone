@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toastNoWay } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface SuggestionInfo {
   Icon: React.ElementType;
@@ -57,9 +58,11 @@ const SuggestionBox = ({ info }: { info: SuggestionInfo }) => {
 const Suggestions = () => {
   const { data: session } = useSession()
   const utils = api.useUtils()
+  const router  = useRouter()
   const { mutate: createBase, status } = api.base.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (createdBase) => {
       await utils.base.getAll.invalidate()
+      router.push(`/base/${createdBase.id}`)
     }
   })
   const isLoading = status === "pending"
@@ -90,7 +93,7 @@ const Suggestions = () => {
       iconColor: "#3b66a3",
       title: "Build an app on your own",
       description: "Start with a blank app and build your ideal workflow.",
-      func: () => {if (!session?.user) return; createBase({ name: "Untitled Base" })},
+      func: () => {if (!session?.user) return; createBase({ name: "Untitled Base" }); },
       isDisabled: !session?.user || isLoading
     },
   ];

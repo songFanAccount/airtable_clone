@@ -4,9 +4,10 @@ import { HomeBoxWrapper } from "./Suggestions"
 import { GoDatabase as BaseIcon } from "react-icons/go"
 import { StarIcon } from "@heroicons/react/24/outline"
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
-import { toastNoFunction, toastTODO } from "~/hooks/helpers"
+import { toastNoFunction } from "~/hooks/helpers"
 import { useSession } from "next-auth/react"
 import { api } from "~/trpc/react"
+import { useRouter } from "next/navigation";
 
 interface BaseBoxProps extends BaseInfo {
   deleteBase: (id: string) => void,
@@ -16,12 +17,16 @@ const BaseBox = ({ name, id, deleteBase, isDisabled } : BaseBoxProps) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const isActive = isHovered && !isDisabled
+  const router = useRouter()
+  function openBase(id: string) {
+    router.push(`/base/${id}`)
+  }
   return (
     <HomeBoxWrapper isDisabled={isDisabled}>
       <div className="flex flex-row h-[92px] items-center relative"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => {if(!isDisabled) toastTODO("Open base")}}
+        onClick={() => {if(!isDisabled) openBase(id)}}
       >
         <div className="w-[92px] h-[92px] flex justify-center items-center">
           <div className="flex justify-center items-center w-[56px] h-[56px] rounded-[12px] bg-[#99455a] text-white border-box">
