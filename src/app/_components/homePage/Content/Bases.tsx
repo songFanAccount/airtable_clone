@@ -107,16 +107,16 @@ export interface BaseInfo {
 const Bases = () => {
   const [viewMode, setViewMode] = useState<viewModes>(viewModes.LIST)
   const bases: BaseInfo[] = [
-    // {
-    //   name: "Untitled Base",
-    //   lastOpened: "just now",
-    //   workspace: "My First Workspace"
-    // },
-    // {
-    //   name: "layout",
-    //   lastOpened: "2 hours ago",
-    //   workspace: "My First Workspace"
-    // },
+    {
+      name: "Untitled Base",
+      lastOpened: "just now",
+      workspace: "My First Workspace"
+    },
+    {
+      name: "layout",
+      lastOpened: "2 hours ago",
+      workspace: "My First Workspace"
+    },
   ]
   return (
     <div className="flex flex-col w-full h-full">

@@ -5,6 +5,7 @@ import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { ToastContainer } from 'react-toastify';
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Lyra Airtable",
@@ -23,11 +24,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`}>
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
-        <ToastContainer
-          position="bottom-right"
-          theme="dark"
-        />
+        <SessionProvider>
+          <TRPCReactProvider>
+            {children}
+          </TRPCReactProvider>
+          <ToastContainer
+            position="bottom-right"
+            theme="dark"
+          />
+        </SessionProvider>
       </body>
     </html>
   );

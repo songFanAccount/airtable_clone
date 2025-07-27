@@ -5,7 +5,7 @@ import { toastNoUI } from "~/hooks/helpers";
 const SearchBar = () => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
-    <button className="flex items-center justify-center cursor-pointer px-4 rounded-[20px] border border-gray-300 h-[32px] w-full min-w-[133px] max-w-[340px]"
+    <button className="flex items-center justify-center cursor-pointer px-4 rounded-[20px] border h-[32px] w-full min-w-[133px] max-w-[340px]"
       style={{
         borderColor: isHovered ? "#c0c1c2" : "hsl(202, 10%, 88%)",
         boxShadow: isHovered 
