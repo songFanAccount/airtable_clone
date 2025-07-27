@@ -6,6 +6,7 @@ import BasesList from "./BasesList";
 import BasesGrid from "./BasesGrid";
 import { toastNoUI, toastNoWay } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
+import { useSession } from "next-auth/react";
 const OpenedInDropdown = () => {
   return (
     <button className="flex flex-row items-center gap-1 group text-gray-600 cursor-pointer"
@@ -79,22 +80,35 @@ const DisplayModes = ({ viewMode, setViewMode } : { viewMode: viewModes, setView
 }
 
 
-const NoBasesEl = () => {
+const NoBasesEl = ({ loggedIn, loading } : { loggedIn: boolean, loading: boolean }) => {
   return (
     <div className="flex w-full h-full justify-center items-center">
-      <div className="flex flex-col items-center">
-        <span className="text-[21px] mb-2">You haven&apos;t opened anything recently</span>
-        <span className="text-[13px] mb-6 text-gray-600">Apps that you have recently opened will appear here.</span>
-        <button className="px-3 h-[32px] rounded-[6px] bg-white border cursor-pointer"
-          style={{
-            borderColor: "#d9dadb",
-            boxShadow: "0px 1px 3px rgba(0,0,0,0.1)"
-          }}
-          onClick={toastNoWay}
-        >
-          <span className="text-[13px] text-gray-800">Go to all workspaces</span>
-        </button>
-      </div>
+      {
+        !loggedIn
+        ?
+          <span className="text-[21px]">Please log in to view bases!</span>
+        :
+          loading
+          ?
+            <div className="flex flex-row items-center gap-x-4">
+              <span className="text-[21px]">Loading all bases...</span>
+              <LoadingIcon className="w-8 h-8 animate-spin"/>
+            </div>
+          :
+            <div className="flex flex-col items-center">
+              <span className="text-[21px] mb-2">You haven&apos;t opened anything recently</span>
+              <span className="text-[13px] mb-6 text-gray-600">Apps that you have recently opened will appear here.</span>
+              <button className="px-3 h-[32px] rounded-[6px] bg-white border cursor-pointer"
+                style={{
+                  borderColor: "#d9dadb",
+                  boxShadow: "0px 1px 3px rgba(0,0,0,0.1)"
+                }}
+                onClick={toastNoWay}
+              >
+                <span className="text-[13px] text-gray-800">Go to all workspaces</span>
+              </button>
+            </div>
+      }
     </div>
   )
 }
@@ -104,7 +118,10 @@ export interface BaseInfo {
 
 const Bases = () => {
   const [viewMode, setViewMode] = useState<viewModes>(viewModes.GRID)
-  const { data: basesData, isLoading } = api.base.getAll.useQuery()
+  const { data: session } = useSession()
+  const { data: basesData, isLoading } = api.base.getAll.useQuery(undefined, {
+    enabled: !!session?.user
+  })
   const bases = basesData
     ?
       basesData.map((baseData) => baseData as BaseInfo)
@@ -114,24 +131,11 @@ const Bases = () => {
     <div className="flex flex-col w-full h-full">
       <DisplayModes viewMode={viewMode} setViewMode={setViewMode}/>
       {
-        isLoading
+        (!session?.user || isLoading || (bases && bases.length === 0))
         ?
-          <div className="w-full h-full flex justify-center items-center">
-            <div className="flex flex-row items-center gap-x-4">
-              <span className="text-[24px]">Loading all bases...</span>
-              <LoadingIcon className="w-8 h-8 animate-spin"/>
-            </div>
-          </div>
+          <NoBasesEl loggedIn={session?.user !== undefined} loading={isLoading}/>
         :
-          bases && bases.length === 0
-          ?
-            <NoBasesEl/>
-          :
-            viewMode === viewModes.LIST
-            ?
-              <BasesList bases={bases}/>
-            :
-              <BasesGrid bases={bases}/>
+          viewMode === viewModes.LIST ? <BasesList bases={bases}/> : <BasesGrid bases={bases}/>
       }
     </div>
   )
