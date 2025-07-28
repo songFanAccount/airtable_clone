@@ -64,9 +64,10 @@ const Suggestions = () => {
       if (createdBase) {
         await utils.base.getAll.invalidate()
         console.log(createdBase)
-        const lastOpenedTable = createdBase.tables.find((table) => table.id === createdBase.lastOpenedTableId)
+        const lastOpenedTableId = createdBase.lastOpenedTableId
+        const lastOpenedTable = createdBase.tables.find((table) => table.id === lastOpenedTableId)
         const lastOpenedViewId = lastOpenedTable?.lastOpenedViewId
-        if (lastOpenedViewId) router.push(`/base/${createdBase.id}/${lastOpenedViewId}`)
+        if (lastOpenedTableId && lastOpenedViewId) router.push(`/base/${createdBase.id}/${lastOpenedTableId}/${lastOpenedViewId}`)
       }
     }
   })

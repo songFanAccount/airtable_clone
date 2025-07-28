@@ -13,13 +13,13 @@ interface BaseBoxProps extends BaseInfo {
   deleteBase: (id: string) => void,
   isDisabled: boolean
 }
-const BaseBox = ({ name, id, deleteBase, isDisabled } : BaseBoxProps) => {
+const BaseBox = ({ name, id, lastOpenedTableId, lastOpenedViewId, deleteBase, isDisabled } : BaseBoxProps) => {
   const shortenedName = `${name[0]?.toUpperCase()}${name.length > 1 ? name[1] : ''}`
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const isActive = isHovered && !isDisabled
   const router = useRouter()
   function openBase(id: string) {
-    router.push(`/base/${id}`)
+    if (lastOpenedTableId && lastOpenedViewId) router.push(`/base/${id}/${lastOpenedTableId}/${lastOpenedViewId}`)
   }
   return (
     <HomeBoxWrapper isDisabled={isDisabled}>

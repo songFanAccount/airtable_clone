@@ -52,6 +52,13 @@ export const baseRouter = createTRPCRouter({
         },
         orderBy: {
           createdAt: "desc"
+        },
+        include: {
+          tables: {
+            include: {
+              lastOpenedView: true
+            }
+          }
         }
       })
     }),
