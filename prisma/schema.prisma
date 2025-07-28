@@ -67,30 +67,36 @@ enum FieldType {
 }
 
 model Base {
-    id String @id @default(cuid())
-    name String
-    userId String
-    user User @relation(fields: [userId], references: [id])
-    tables Table[]
-    createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  name               String
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tables             Table[]  @relation("BaseTables")
+  lastOpenedTableId  String?  @unique
+  lastOpenedTable    Table?   @relation("BaseLastOpenedTable", fields: [lastOpenedTableId], references: [id])
+  createdAt          DateTime @default(now())
 }
 
 model Table {
-    id String @id @default(cuid())
-    name String
-    baseId String
-    base Base @relation(fields: [baseId], references: [id])
-    fields Field[]
-    records Record[]
-    createdAt DateTime @default(now())
-    @@unique([baseId, name])
+  id                String   @id @default(cuid())
+  name              String
+  baseId            String
+  base              Base     @relation("BaseTables", fields: [baseId], references: [id], onDelete: Cascade)
+  openedByBase      Base?    @relation("BaseLastOpenedTable")
+  fields            Field[]
+  records           Record[]
+  views             View[]   @relation("TableViews")
+  lastOpenedViewId  String?  @unique
+  lastOpenedView    View?    @relation("TableLastOpenedView", fields: [lastOpenedViewId], references: [id])
+  createdAt         DateTime @default(now())
+  @@unique([baseId, name])
 }
 
 model Field {
     id String @id @default(cuid())
     name String
     tableId String
-    table Table @relation(fields: [tableId], references: [id])
+    table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
     type FieldType
     @@unique([tableId, name])
 }
@@ -98,9 +104,17 @@ model Field {
 model Record {
     id String @id @default(cuid())
     tableId String
-    table Table @relation(fields: [tableId], references: [id])
+    table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
     data Json
     position Float
     createdAt DateTime @default(now())
     @@unique([tableId, position])
+}
+
+model View {
+  id              String   @id @default(cuid())
+  name            String
+  tableId         String
+  table           Table    @relation("TableViews", fields: [tableId], references: [id], onDelete: Cascade)
+  openedByTable   Table?   @relation("TableLastOpenedView")
 }

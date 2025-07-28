@@ -61,8 +61,13 @@ const Suggestions = () => {
   const router  = useRouter()
   const { mutate: createBase, status } = api.base.create.useMutation({
     onSuccess: async (createdBase) => {
-      await utils.base.getAll.invalidate()
-      router.push(`/base/${createdBase.id}`)
+      if (createdBase) {
+        await utils.base.getAll.invalidate()
+        console.log(createdBase)
+        const lastOpenedTable = createdBase.tables.find((table) => table.id === createdBase.lastOpenedTableId)
+        const lastOpenedViewId = lastOpenedTable?.lastOpenedViewId
+        if (lastOpenedViewId) router.push(`/base/${createdBase.id}/${lastOpenedViewId}`)
+      }
     }
   })
   const isLoading = status === "pending"

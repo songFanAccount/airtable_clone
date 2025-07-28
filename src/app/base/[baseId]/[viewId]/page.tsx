@@ -1,12 +1,10 @@
-import { auth } from "~/server/auth";
+import BasePage from "~/app/_components/basePage/BasePage";
 import { HydrateClient } from "~/trpc/server";
 
 export default async function Base() {
-  const session = await auth();
-
   return (
     <HydrateClient>
-      Base
+      <BasePage/>
     </HydrateClient>
   );
 }
