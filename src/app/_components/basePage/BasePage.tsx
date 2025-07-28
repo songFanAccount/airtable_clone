@@ -28,7 +28,7 @@ const BasePage = () => {
     <div className="flex flex-row h-screen w-screen overflow-x-clip">
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
-        <Header baseName={baseData?.name ?? "?"}/>
+        <Header baseId={baseData?.id} baseName={baseData?.name}/>
         <Content />
       </div>
     </div>

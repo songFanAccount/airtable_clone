@@ -3,9 +3,10 @@ import BasePanelModes from "./BasePanelModes"
 import RightCorner from "./RightCorner"
 
 interface HeaderProps {
-  baseName: string
+  baseId?: string,
+  baseName?: string
 }
-const Header = ({ baseName } : HeaderProps) => {
+const Header = ({ baseId, baseName } : HeaderProps) => {
   return (
     <div
       className="flex min-w-[489px] w-full border-b-[1px] bg-white"
@@ -22,7 +23,7 @@ const Header = ({ baseName } : HeaderProps) => {
           borderColor: "hsl(202, 10%, 88%)",
         }}
       >
-        <div className="flex-1 flex flex-row justify-start"><BaseInfoCorner baseName={baseName}/></div>
+        <div className="flex-1 flex flex-row justify-start"><BaseInfoCorner baseId={baseId} baseName={baseName}/></div>
         <div className="flex-1 flex flex-row justify-center h-full"><BasePanelModes/></div>
         <div className="flex-1 flex flex-row justify-end"><RightCorner/></div>
       </div>
