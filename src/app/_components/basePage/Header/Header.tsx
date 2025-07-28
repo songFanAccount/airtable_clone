@@ -1,11 +1,17 @@
-const Header = () => {
+import BaseInfoCorner from "./BaseInfoCorner"
+import RightCorner from "./RightCorner"
+
+interface HeaderProps {
+  baseName: string
+}
+const Header = ({ baseName } : HeaderProps) => {
   return (
     <div
       className="flex flex-col min-w-[489px] w-full border-b-[1px] bg-white"
       style={{ borderColor: "hsl(0, 0.00%, 98.40%)" }}
     >
       <div
-        className="flex items-center h-[56px] min-h-[56px] pl-[8px] pr-[16px]"
+        className="flex justify-between items-center h-[56px] min-h-[56px]"
         style={{
           minWidth: "489px",
           width: "100%",
@@ -15,9 +21,8 @@ const Header = () => {
           borderColor: "hsl(202, 10%, 88%)",
         }}
       >
-        {/* <LogoCorner />
-        <SearchBar />
-        <InfoCorner /> */}
+        <BaseInfoCorner baseName={baseName}/>
+        <RightCorner/>
       </div>
     </div>
   )
