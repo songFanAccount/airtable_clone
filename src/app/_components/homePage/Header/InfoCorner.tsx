@@ -55,7 +55,7 @@ const InfoCorner = () => {
         session?.user
         ?
           <div className="flex justify-center items-center ml-2 w-7 h-7 flex-shrink-0">
-            <ProfileButton/>
+            <ProfileButton inHeader={true}/>
           </div>
         :
           <button className="flex justify-center items-center h-7 px-3 border rounded-[6px] hover:bg-black hover:text-white cursor-pointer"

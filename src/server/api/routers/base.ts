@@ -62,6 +62,24 @@ export const baseRouter = createTRPCRouter({
         }
       })
     }),
+  getAllFromBase: protectedProcedure
+    .input(z.object({id: z.string()}))
+    .query(async ({ctx, input}) => {
+      return ctx.db.base.findUnique({
+        where: {
+          userId: ctx.session.user.id,
+          id: input.id
+        },
+        include: {
+          tables: {
+            include: {
+              views: true,
+              lastOpenedView: true
+            }
+          }
+        }
+      })
+    }),
   delete: protectedProcedure
     .input(z.object({id: z.string()}))
     .mutation(async ({ ctx, input }) => {

@@ -63,7 +63,6 @@ const Suggestions = () => {
     onSuccess: async (createdBase) => {
       if (createdBase) {
         await utils.base.getAll.invalidate()
-        console.log(createdBase)
         const lastOpenedTableId = createdBase.lastOpenedTableId
         const lastOpenedTable = createdBase.tables.find((table) => table.id === lastOpenedTableId)
         const lastOpenedViewId = lastOpenedTable?.lastOpenedViewId
