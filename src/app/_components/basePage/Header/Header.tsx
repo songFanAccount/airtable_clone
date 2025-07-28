@@ -1,4 +1,5 @@
 import BaseInfoCorner from "./BaseInfoCorner"
+import BasePanelModes from "./BasePanelModes"
 import RightCorner from "./RightCorner"
 
 interface HeaderProps {
@@ -7,7 +8,7 @@ interface HeaderProps {
 const Header = ({ baseName } : HeaderProps) => {
   return (
     <div
-      className="flex flex-col min-w-[489px] w-full border-b-[1px] bg-white"
+      className="flex min-w-[489px] w-full border-b-[1px] bg-white"
       style={{ borderColor: "hsl(0, 0.00%, 98.40%)" }}
     >
       <div
@@ -21,8 +22,9 @@ const Header = ({ baseName } : HeaderProps) => {
           borderColor: "hsl(202, 10%, 88%)",
         }}
       >
-        <BaseInfoCorner baseName={baseName}/>
-        <RightCorner/>
+        <div className="flex-1 flex flex-row justify-start"><BaseInfoCorner baseName={baseName}/></div>
+        <div className="flex-1 flex flex-row justify-center h-full"><BasePanelModes/></div>
+        <div className="flex-1 flex flex-row justify-end"><RightCorner/></div>
       </div>
     </div>
   )
