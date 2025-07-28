@@ -1,6 +1,8 @@
+import { useState } from "react"
 import { toastNoFunction } from "~/hooks/helpers"
 
 const Mode = ({ text, onClick, isSelected } : { text: string, onClick: () => void, isSelected: boolean }) => {
+  const [isHovered, setIsHovered] = useState<boolean>(false)
   return (
     <button className="h-full cursor-pointer border-box"
       onClick={onClick}
@@ -10,9 +12,11 @@ const Mode = ({ text, onClick, isSelected } : { text: string, onClick: () => voi
     >
       <span className="text-[13px] font-[500] relative"
         style={{
-          color: isSelected ? "black" : "rgb(97, 102, 112)",
-          top: isSelected ? "1px" : 0
+          color: isSelected || isHovered ? "black" : "rgb(97, 102, 112)",
+          top: isSelected ? "1px" : 0,
         }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         {text}
       </span>

@@ -7,10 +7,6 @@ import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-interface ButtonInfo {
-  Icon: React.ElementType,
-  onClick: () => void
-}
 const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: string }) => {
   const router = useRouter()
   const utils = api.useUtils();
@@ -20,6 +16,13 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
       await utils.base.getAll.invalidate();
     },
   });
+  const [newName, setNewName] = useState<string>(baseName ?? "")
+  const { mutate: renameBase, isPending: isRenaming } = api.base.rename.useMutation({
+    onSuccess: async () => {
+      await utils.base.getAll.invalidate()
+      await utils.base.getAllFromBase.invalidate()
+    }
+  })
   useEffect(() => {
     if (isDeleting && !isPending) router.push("/")
   }, [isPending, isDeleting])
@@ -29,6 +32,9 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
       return () => document.body.classList.remove("pointer-events-none");
     }
   }, [isDeleting]);
+  useEffect(() => {
+    setNewName(baseName ?? "")
+  }, [baseName])
   return (
     <Popover.Root>
       <div className="flex flex-row gap-2 items-center pl-4">
@@ -61,9 +67,21 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
           <div className="flex flex-row items-center h-[50px]">
             <input
               type="text"
+              value={newName}
               tabIndex={-1}
-              defaultValue={baseName ?? "..."}
               autoFocus={false}
+              onChange={(e) => {
+                const newValue = e.target.value
+                setNewName(newValue)
+              }}
+              onBlur={() => {
+                if (newName.trim() !== baseName?.trim()) {
+                  if (baseId) renameBase({id: baseId, newName: newName.trim()})
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
               className="w-full p-2 text-[20px] placeholder:text-gray-800 rounded-[3px] hover:bg-[#f2f4f8] focus:bg-[#f2f4f8] outline-[#a0c6ff]"
             />
             <div className="flex flex-row items-center gap-2 ml-2">

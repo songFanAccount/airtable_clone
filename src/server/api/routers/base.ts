@@ -89,5 +89,18 @@ export const baseRouter = createTRPCRouter({
           userId: ctx.session.user.id
         }
       })
+    }),
+  rename: protectedProcedure
+    .input(z.object({id: z.string(), newName: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.base.update({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id
+        },
+        data: {
+          name: input.newName
+        }
+      })
     })
 })

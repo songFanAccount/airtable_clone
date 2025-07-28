@@ -34,7 +34,7 @@ const BaseBox = ({ name, id, lastOpenedTableId, lastOpenedViewId, deleteBase, is
           </div>
         </div>
         <div className="flex flex-col mr-4">
-          <span className="text-[13px] font-[500] h-[19.5px]">{name}</span>
+          <span className="text-[13px] font-[500] h-[19.5px] truncate max-w-[110px]">{name}</span>
           <div className="flex flex-col justify-center h-[16.5px] mt-1">
             {
               isHovered

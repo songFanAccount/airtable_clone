@@ -1,12 +1,14 @@
 import { useRouter } from "next/navigation";
 import { FaReact as OmniIcon } from "react-icons/fa";
 import { QuestionMarkCircleIcon, BellIcon } from "@heroicons/react/24/outline";
+import { IoArrowBackOutline as HomeIcon } from "react-icons/io5";
 import { toastNoUI, toastNoWay } from "~/hooks/helpers";
 import { useState } from "react";
 import ProfileButton from "../../homePage/Header/ProfileButton";
 
 const Sidebar = () => {
   const router = useRouter()
+  const [homeHovered, setHomeHovered] = useState<boolean>(false)
   const [helpHovered, setHelpHovered] = useState<boolean>(false)
   const [notiHovered, setNotiHovered] = useState<boolean>(false)
   return (
@@ -14,8 +16,18 @@ const Sidebar = () => {
       <div className="flex flex-col items-center gap-4">
         <button className="cursor-pointer"
           onClick={() => router.push("/")}
+          onMouseEnter={() => setHomeHovered(true)}
+          onMouseLeave={() => setHomeHovered(false)}
         >
-          <img src="/assets/airtable_base.svg" alt="Airtable Base" className="h-6 w-6" />
+          {
+            homeHovered
+            ?
+              <div className="flex justify-center items-center h-6 w-6">
+                <HomeIcon className="h-4 w-4" />
+              </div>
+            :
+              <img src="/assets/airtable_base.svg" alt="Airtable Base" className="h-6 w-6" />
+          }
         </button>
         <button className="cursor-pointer"
           onClick={toastNoWay}
