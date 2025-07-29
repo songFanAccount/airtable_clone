@@ -13,7 +13,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
       <div className="h-full w-full flex flex-col">
         <Header currentView={currentView}/>
         <div className="h-full w-full flex flex-row relative">
-          <Dialog.Content className="w-[279px] border-r-[1px] border-box px-2 py-[10px] flex-shrink-0"
+          <Dialog.Content onOpenAutoFocus={(e) => e.preventDefault()} className="w-[279px] border-r-[1px] border-box px-2 py-[10px] flex-shrink-0"
             style={{
               borderRightColor: "#dfe2e4",
             }}

@@ -153,6 +153,19 @@ export const baseRouter = createTRPCRouter({
         /*
         Create default records
         */
+        const defaultRecord: Record<string, number | string> = {}
+        defaultFields.forEach((field) => {
+          defaultRecord[field.name] = ""
+        })
+        for (let i = 1; i <= 3; i++) {
+          await tx.record.create({
+            data: {
+              tableId: newTable.id,
+              position: i,
+              data: defaultRecord
+            }
+          })
+        }
         const defaultView = await tx.view.create({
           data: {
             name: "Grid view",

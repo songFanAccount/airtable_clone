@@ -13,7 +13,7 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
   const TypeIcon = field.type === FieldType.Text ? TextTypeIcon : NumberTypeIcon
   const dim = field.type === FieldType.Text ? "16px" : "12px"
   return (
-    <div className="flex flex-row justify-between items-center w-[180px] h-full hover:bg-[#f8f8f8] cursor-default border-box border-r-[1px] px-2"
+    <div className="flex flex-row justify-between items-center w-[180px] h-full hover:bg-[#f8f8f8] cursor-default border-box border-r-[1px] px-2 bg-white"
       style={{
         borderColor: isFirst ? "#d1d1d1" : "#dfe2e4"
       }}
@@ -39,12 +39,12 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
 }
 const ColumnHeadings = ({ fields } : { fields: FieldsData }) => {
   return (
-    <div className="w-full flex flex-row items-center h-8 border-box border-b-[1px] text-gray-600"
+    <div className="flex flex-row items-center h-8 border-box border-b-[1px] text-gray-600 bg-[#fbfcfe]"
       style={{
         borderColor: "#d1d1d1"
       }}
     >
-      <div className="w-[87px] h-full flex flex-row items-center pl-4">
+      <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white">
         <div className="flex items-center space-x-2">
           <Checkbox.Root
             id="c1"
@@ -60,7 +60,7 @@ const ColumnHeadings = ({ fields } : { fields: FieldsData }) => {
       {
         fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0}/>)
       }
-      <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-[#dfe2e4] hover:bg-[#f8f8f8] cursor-pointer">
+      <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-[#dfe2e4] bg-white hover:bg-[#f8f8f8] cursor-pointer">
         <AddIcon className="h-5 w-5"/>
       </button>
     </div>

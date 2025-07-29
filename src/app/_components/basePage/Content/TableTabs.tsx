@@ -25,7 +25,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   })
   function createNewTable() {
     if (baseId && tablesData) {
-      addNewTable({ newName: `Table ${tablesData.length + 1}`, baseId: baseId })
+      let newTableNumber = 1
+      while (tablesData.some(table => table.name === `Table ${newTableNumber}`)) newTableNumber++
+      addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId })
     }
   }
   const { mutate: deleteTable, status: deleteTableStatus } = api.base.deleteTable.useMutation({
