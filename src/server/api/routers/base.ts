@@ -74,10 +74,12 @@ export const baseRouter = createTRPCRouter({
           tables: {
             include: {
               views: true,
-              lastOpenedView: true
-            }
-          }
-        }
+              lastOpenedView: true,
+            },
+          },
+          user: true,
+          lastOpenedTable: true,
+        },
       })
     }),
   delete: protectedProcedure
@@ -101,6 +103,41 @@ export const baseRouter = createTRPCRouter({
         data: {
           name: input.newName
         }
+      })
+    }),
+  addNewTable: protectedProcedure
+    .input(z.object({baseId: z.string(), newName: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        let newTable = await tx.table.create({
+          data: {
+            name: input.newName,
+            baseId: input.baseId
+          }
+        })
+        await tx.base.update({
+          where: {
+            id: input.baseId
+          },
+          data: {
+            lastOpenedTableId: newTable.id
+          }
+        })
+        const defaultView = await tx.view.create({
+          data: {
+            name: "Grid view",
+            tableId: newTable.id
+          }
+        })
+        newTable = await tx.table.update({
+          where: {
+            id: newTable.id
+          },
+          data: {
+            lastOpenedViewId: defaultView.id
+          }
+        })
+        return newTable
       })
     })
 })

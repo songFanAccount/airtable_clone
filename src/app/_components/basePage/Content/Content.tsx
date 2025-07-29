@@ -1,11 +1,11 @@
-const Content = () => {
+import type { BaseData, TableData, TablesData, ViewData } from "../BasePage"
+import TableTabs from "./TableTabs"
+
+const Content = ({ baseData, currentTable, currentView } : { baseData: BaseData, currentTable: TableData, currentView: ViewData }) => {
+  const tables: TablesData = baseData?.tables
   return (
-    <div className="h-full w-full bg-[#f9fafb] overflow-x-hidden overflow-y-hidden">
-      <div className="flex flex-col h-full w-full min-w-[480px]">
-        <p className="text-[27px] font-bold w-full pb-6">Base</p>
-        {/* <Suggestions/>
-        <Bases/> */}
-      </div>
+    <div className="h-full w-full bg-white overflow-x-hidden overflow-y-hidden">
+      <TableTabs baseId={baseData?.id} tablesData={tables} currentTable={currentTable}/>
     </div>
   )
 }
