@@ -6,6 +6,7 @@ import { api } from "~/trpc/react"
 import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
 import Content from "./Content/Content"
+import type { FieldType } from "@prisma/client"
 
 export type BaseData = {
   user: {
@@ -21,6 +22,13 @@ export type BaseData = {
       id: string;
       tableId: string;
     }>;
+    fields: {
+      tableId: string;
+      type: FieldType;
+      name: string;
+      id: string;
+      columnNumber: number;
+    }[];
     lastOpenedView: {
       name: string;
       id: string;
@@ -51,6 +59,13 @@ export type TableData = ({
       name: string;
       id: string;
   }[];
+  fields: {
+    tableId: string;
+    type: FieldType;
+    name: string;
+    id: string;
+    columnNumber: number;
+  }[];
   lastOpenedView: {
       tableId: string;
       name: string;
@@ -70,6 +85,13 @@ export type TablesData = Array<{
     id: string;
     tableId: string;
   }>;
+  fields: {
+    tableId: string;
+    type: FieldType;
+    name: string;
+    id: string;
+    columnNumber: number;
+  }[];
   lastOpenedView: {
     name: string;
     id: string;
@@ -93,6 +115,23 @@ export type ViewData = {
   name: string;
   id: string;
 } | undefined
+
+export type FieldData = {
+  tableId: string;
+  type: FieldType;
+  name: string;
+  id: string;
+  columnNumber: number;
+}
+
+export type FieldsData = {
+  tableId: string;
+  type: FieldType;
+  name: string;
+  id: string;
+  columnNumber: number;
+}[] | undefined
+
 const BasePage = () => {
 
   const { baseId, tableId, viewId } = useParams()

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
+import { FieldType } from "@prisma/client"
 
 export const baseRouter = createTRPCRouter({
   create: protectedProcedure
@@ -74,6 +75,7 @@ export const baseRouter = createTRPCRouter({
           tables: {
             include: {
               views: true,
+              fields: true,
               lastOpenedView: true,
             },
           },
@@ -123,6 +125,34 @@ export const baseRouter = createTRPCRouter({
             lastOpenedTableId: newTable.id
           }
         })
+        /* 
+        Create default fields
+        */
+        interface FieldProps {
+          name: string,
+          type: FieldType
+        }
+        const defaultFields: FieldProps[] = [
+          {name: "Name", type: FieldType.Text},
+          {name: "Address", type: FieldType.Text},
+          {name: "Age", type: FieldType.Number},
+          {name: "Rank", type: FieldType.Number},
+          {name: "Note", type: FieldType.Text},
+        ]
+        for (const [index, fieldProps] of defaultFields.entries()) {
+          const { name, type } = fieldProps;
+          await tx.field.create({
+            data: {
+              name,
+              type,
+              tableId: newTable.id,
+              columnNumber: index + 1
+            }
+          });
+        }
+        /*
+        Create default records
+        */
         const defaultView = await tx.view.create({
           data: {
             name: "Grid view",

@@ -7,15 +7,11 @@ import { HiOutlineDotsHorizontal as OptionsIcon } from "react-icons/hi";
 import { toastNoFunction, toastNoUI } from "~/hooks/helpers";
 import type { ViewData, ViewsData } from "../../BasePage";
 import { useState } from "react";
-import { toast } from "react-toastify";
 import { api } from "~/trpc/react";
 
-const ViewButton = ({ viewData, isCurrent } : { viewData: ViewData, isCurrent: boolean }) => {
+const ViewButton = ({ viewData, isCurrent, navToView } : { viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const StartIcon = isHovered ? StarIcon : TableIcon
-  function onViewClick() {
-    toast("view click")
-  }
   return (
     <div className="flex flex-row items-center justify-between h-[32.25px] hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer px-3 py-2"
       style={{
@@ -23,7 +19,7 @@ const ViewButton = ({ viewData, isCurrent } : { viewData: ViewData, isCurrent: b
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onViewClick}
+      onClick={() => {if(viewData) navToView(viewData.id)}}
     >
       <div className="flex flex-row items-center gap-2">
         <StartIcon className="w-4 h-4"
@@ -83,7 +79,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
         </div>
       </div>
       {
-        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData.id === currentView?.id}/>)
+        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData.id === currentView?.id} navToView={navToView}/>)
       }
     </div>
   );

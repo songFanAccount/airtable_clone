@@ -18,7 +18,7 @@ const Header = ({ currentView } : { currentView: ViewData }) => {
   return (
     <div className="h-[48px] border-box border-b-[1px] flex flex-row justify-between items-center gap-2"
       style={{
-        borderColor: '#f5f5f5'
+        borderColor: "#dfe2e4"
       }}
     >
       <div className="flex flex-row items-center pl-4 pr-2 gap-2">

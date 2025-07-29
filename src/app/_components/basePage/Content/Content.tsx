@@ -14,7 +14,7 @@ const Content = ({ baseData, currentTable, views, currentView } : { baseData: Ba
   return (
     <div className="h-full w-full bg-white overflow-x-hidden overflow-y-hidden">
       <TableTabs baseId={baseData?.id} tablesData={tables} currentTable={currentTable}/>
-      <Views views={views} currentView={currentView} navToView={navToView}/>
+      <Views tableData={currentTable} views={views} currentView={currentView} navToView={navToView}/>
     </div>
   )
 }
