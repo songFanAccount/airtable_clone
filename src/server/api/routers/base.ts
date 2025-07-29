@@ -139,5 +139,26 @@ export const baseRouter = createTRPCRouter({
         })
         return newTable
       })
+    }),
+  deleteTable: protectedProcedure
+    .input(z.object({baseId: z.string(), tableId: z.string(), fallbackTableId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        await tx.table.delete({
+          where: {
+            id: input.tableId,
+            baseId: input.baseId
+          }
+        })
+        const updatedBase = await tx.base.update({
+          where: {
+            id: input.baseId,
+          },
+          data: {
+            lastOpenedTableId: input.fallbackTableId
+          }
+        })
+        return updatedBase
+      })
     })
 })
