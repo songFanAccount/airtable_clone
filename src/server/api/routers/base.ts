@@ -160,5 +160,26 @@ export const baseRouter = createTRPCRouter({
         })
         return updatedBase
       })
+    }),
+  addNewView: protectedProcedure
+    .input(z.object({tableId: z.string(), newName: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const newView = await tx.view.create({
+          data: {
+            name: input.newName,
+            tableId: input.tableId
+          }
+        })
+        await tx.table.update({
+          where: {
+            id: input.tableId
+          },
+          data: {
+            lastOpenedViewId: newView.id
+          }
+        })
+        return newView
+      })
     })
 })

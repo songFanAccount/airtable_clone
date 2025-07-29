@@ -82,6 +82,12 @@ export type TablesData = Array<{
   lastOpenedViewId: string | null;
 }> | undefined
 
+export type ViewsData = {
+  name: string;
+  id: string;
+  tableId: string;
+}[] | undefined
+
 export type ViewData = {
   tableId: string;
   name: string;
@@ -96,6 +102,7 @@ const BasePage = () => {
     enabled: !!session?.user
   })
   const tableData = baseData?.tables.find((table) => table.id === tableId)
+  const tableViews = tableData?.views
   const viewData = tableData?.views.find((view) => view.id === viewId)
   useEffect(() => {
     if (status === "unauthenticated") router.push("/")
@@ -110,7 +117,7 @@ const BasePage = () => {
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
         <Header baseId={baseData?.id} baseName={baseData?.name}/>
-        <Content baseData={baseData} currentTable={tableData} currentView={viewData} />
+        <Content baseData={baseData} currentTable={tableData} views={tableViews} currentView={viewData} />
       </div>
     </div>
   )
