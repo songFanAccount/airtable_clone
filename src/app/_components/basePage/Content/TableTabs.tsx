@@ -140,7 +140,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
               </div>
             </div>
           :
-            <LoadingIcon className="w-4 h-4 animate-spin ml-3"/>
+            <div className="flex flex-row items-center h-full flex-shrink-0">
+              <LoadingIcon className="w-4 h-4 animate-spin ml-3"/>
+            </div>
         }
       </div>
       <button className="flex flex-row group items-center cursor-pointer gap-1 px-3 text-gray-600" onClick={toastNoUI}>
