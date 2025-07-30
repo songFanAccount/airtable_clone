@@ -54,7 +54,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
   function onCreateView() {
     if (views && currentView) {
       let newViewNumber = 1
-      while (views.some(view => view.name === `Grid ${newViewNumber}`)) newViewNumber++
+      while (views.some(view => view?.name === `Grid ${newViewNumber}`)) newViewNumber++
       createView({
         newName: `Grid ${newViewNumber}`,
         tableId: currentView.tableId
@@ -81,7 +81,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
         </div>
       </div>
       {
-        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData.id === currentView?.id} navToView={navToView}/>)
+        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView}/>)
       }
     </div>
   );

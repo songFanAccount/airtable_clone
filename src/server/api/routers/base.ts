@@ -1,7 +1,81 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType } from "@prisma/client"
+import { FieldType, Prisma, PrismaClient } from "@prisma/client"
 
+async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
+  let newTable = await tx.table.create({
+    data: {
+      name: newName,
+      baseId: baseId
+    }
+  })
+  await tx.base.update({
+    where: {
+      id: baseId
+    },
+    data: {
+      lastOpenedTableId: newTable.id
+    }
+  })
+  /* 
+  Create default fields
+  */
+  interface FieldProps {
+    name: string,
+    type: FieldType
+  }
+  const defaultFields: FieldProps[] = [
+    {name: "Name", type: FieldType.Text},
+    {name: "Address", type: FieldType.Text},
+    {name: "Age", type: FieldType.Number},
+    {name: "Rank", type: FieldType.Number},
+    {name: "Note", type: FieldType.Text},
+  ]
+  const fieldIds: string[] = []
+  for (const [index, fieldProps] of defaultFields.entries()) {
+    const { name, type } = fieldProps;
+    const newField = await tx.field.create({
+      data: {
+        name,
+        type,
+        tableId: newTable.id,
+        columnNumber: index + 1
+      }
+    });
+    fieldIds.push(newField.id)
+  }
+  /*
+  Create default records
+  */
+  const defaultRecord: Record<string, number | string> = {}
+  fieldIds.forEach((field) => {
+    defaultRecord[field] = ""
+  })
+  for (let i = 1; i <= 3; i++) {
+    await tx.record.create({
+      data: {
+        tableId: newTable.id,
+        position: i,
+        data: defaultRecord
+      }
+    })
+  }
+  const defaultView = await tx.view.create({
+    data: {
+      name: "Grid view",
+      tableId: newTable.id
+    }
+  })
+  newTable = await tx.table.update({
+    where: {
+      id: newTable.id
+    },
+    data: {
+      lastOpenedViewId: defaultView.id
+    }
+  })
+  return newTable
+}
 export const baseRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({name: z.string()}))
@@ -13,25 +87,10 @@ export const baseRouter = createTRPCRouter({
             userId: ctx.session.user.id
           }
         })
-        const table = await tx.table.create({
-          data: {
-            name: "Table 1",
-            baseId: base.id
-          }
-        })
+        const table = await createTable(tx, "Table 1", base.id)
         await tx.base.update({
           where: { id: base.id },
           data: { lastOpenedTableId: table.id }
-        })
-        const view = await tx.view.create({
-          data: {
-            name: "Grid view",
-            tableId: table.id
-          }
-        })
-        await tx.table.update({
-          where: { id: table.id },
-          data: { lastOpenedViewId: view.id }
         })
         return tx.base.findUnique({
           where: { id: base.id },
@@ -76,6 +135,7 @@ export const baseRouter = createTRPCRouter({
             include: {
               views: true,
               fields: true,
+              records: true,
               lastOpenedView: true,
             },
           },
@@ -111,76 +171,7 @@ export const baseRouter = createTRPCRouter({
     .input(z.object({baseId: z.string(), newName: z.string()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
-        let newTable = await tx.table.create({
-          data: {
-            name: input.newName,
-            baseId: input.baseId
-          }
-        })
-        await tx.base.update({
-          where: {
-            id: input.baseId
-          },
-          data: {
-            lastOpenedTableId: newTable.id
-          }
-        })
-        /* 
-        Create default fields
-        */
-        interface FieldProps {
-          name: string,
-          type: FieldType
-        }
-        const defaultFields: FieldProps[] = [
-          {name: "Name", type: FieldType.Text},
-          {name: "Address", type: FieldType.Text},
-          {name: "Age", type: FieldType.Number},
-          {name: "Rank", type: FieldType.Number},
-          {name: "Note", type: FieldType.Text},
-        ]
-        for (const [index, fieldProps] of defaultFields.entries()) {
-          const { name, type } = fieldProps;
-          await tx.field.create({
-            data: {
-              name,
-              type,
-              tableId: newTable.id,
-              columnNumber: index + 1
-            }
-          });
-        }
-        /*
-        Create default records
-        */
-        const defaultRecord: Record<string, number | string> = {}
-        defaultFields.forEach((field) => {
-          defaultRecord[field.name] = ""
-        })
-        for (let i = 1; i <= 3; i++) {
-          await tx.record.create({
-            data: {
-              tableId: newTable.id,
-              position: i,
-              data: defaultRecord
-            }
-          })
-        }
-        const defaultView = await tx.view.create({
-          data: {
-            name: "Grid view",
-            tableId: newTable.id
-          }
-        })
-        newTable = await tx.table.update({
-          where: {
-            id: newTable.id
-          },
-          data: {
-            lastOpenedViewId: defaultView.id
-          }
-        })
-        return newTable
+        return createTable(tx, input.newName, input.baseId)
       })
     }),
   deleteTable: protectedProcedure
@@ -223,6 +214,23 @@ export const baseRouter = createTRPCRouter({
           }
         })
         return newView
+      })
+    }),
+  addNewRecord: protectedProcedure
+    .input(z.object({tableId: z.string(), fieldIds: z.array(z.string()), newPosition: z.number()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const newRecordData: Record<string, string | number> = {}
+        for (const fieldId of input.fieldIds) {
+          newRecordData[fieldId] = ""
+        }
+        return await tx.record.create({
+          data: {
+            tableId: input.tableId,
+            data: newRecordData as Prisma.JsonObject,
+            position: input.newPosition
+          }
+        })
       })
     })
 })

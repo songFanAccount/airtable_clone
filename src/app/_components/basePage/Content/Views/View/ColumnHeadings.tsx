@@ -39,7 +39,7 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
 }
 const ColumnHeadings = ({ fields } : { fields: FieldsData }) => {
   return (
-    <div className="flex flex-row items-center h-8 border-box border-b-[1px] text-gray-600 bg-[#fbfcfe]"
+    <div className="flex flex-row items-center h-8 border-box border-b-[1px] bg-[#fbfcfe] font-[500]"
       style={{
         borderColor: "#d1d1d1"
       }}

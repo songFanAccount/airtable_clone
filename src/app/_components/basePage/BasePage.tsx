@@ -7,6 +7,7 @@ import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
 import Content from "./Content/Content"
 import type { FieldType } from "@prisma/client"
+import type { JsonValue } from "@prisma/client/runtime/library"
 
 export type BaseData = {
   user: {
@@ -17,23 +18,10 @@ export type BaseData = {
     image: string | null;
   };
   tables: Array<{
-    views: Array<{
-      name: string;
-      id: string;
-      tableId: string;
-    }>;
-    fields: {
-      tableId: string;
-      type: FieldType;
-      name: string;
-      id: string;
-      columnNumber: number;
-    }[];
-    lastOpenedView: {
-      name: string;
-      id: string;
-      tableId: string;
-    } | null;
+    views: ViewsData;
+    fields: FieldsData;
+    records: RecordsData;
+    lastOpenedView: ViewData | null;
     id: string;
     name: string;
     baseId: string;
@@ -54,23 +42,10 @@ export type BaseData = {
 } | null | undefined;
 
 export type TableData = ({
-  views: {
-      tableId: string;
-      name: string;
-      id: string;
-  }[];
-  fields: {
-    tableId: string;
-    type: FieldType;
-    name: string;
-    id: string;
-    columnNumber: number;
-  }[];
-  lastOpenedView: {
-      tableId: string;
-      name: string;
-      id: string;
-  } | null;
+  views: ViewsData;
+  fields: FieldsData;
+  records: RecordsData;
+  lastOpenedView: ViewData | null;
 } & {
   baseId: string;
   name: string;
@@ -78,44 +53,13 @@ export type TableData = ({
   createdAt: Date;
   lastOpenedViewId: string | null;
 }) | undefined
-
-export type TablesData = Array<{
-  views: Array<{
-    name: string;
-    id: string;
-    tableId: string;
-  }>;
-  fields: {
-    tableId: string;
-    type: FieldType;
-    name: string;
-    id: string;
-    columnNumber: number;
-  }[];
-  lastOpenedView: {
-    name: string;
-    id: string;
-    tableId: string;
-  } | null;
-  id: string;
-  name: string;
-  baseId: string;
-  createdAt: Date;
-  lastOpenedViewId: string | null;
-}> | undefined
-
-export type ViewsData = {
-  name: string;
-  id: string;
-  tableId: string;
-}[] | undefined
-
+export type TablesData = TableData[] | undefined
 export type ViewData = {
   tableId: string;
   name: string;
   id: string;
 } | undefined
-
+export type ViewsData = ViewData[] | undefined
 export type FieldData = {
   tableId: string;
   type: FieldType;
@@ -123,14 +67,14 @@ export type FieldData = {
   id: string;
   columnNumber: number;
 }
-
-export type FieldsData = {
+export type FieldsData = FieldData[] | undefined
+export type RecordData = {
   tableId: string;
-  type: FieldType;
-  name: string;
+  data: JsonValue;
   id: string;
-  columnNumber: number;
-}[] | undefined
+  position: number;
+}
+export type RecordsData = RecordData[] | undefined
 
 const BasePage = () => {
 

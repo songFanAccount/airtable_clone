@@ -26,7 +26,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   function createNewTable() {
     if (baseId && tablesData) {
       let newTableNumber = 1
-      while (tablesData.some(table => table.name === `Table ${newTableNumber}`)) newTableNumber++
+      while (tablesData.some(table => table?.name === `Table ${newTableNumber}`)) newTableNumber++
       addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId })
     }
   }
@@ -35,7 +35,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (updatedBase) {
         await utils.base.getAllFromBase.invalidate()
         const fallbackTableId = updatedBase.lastOpenedTableId
-        const fallbackTable = tablesData?.find((tableData) => tableData.id === fallbackTableId)
+        const fallbackTable = tablesData?.find((tableData) => tableData?.id === fallbackTableId)
         const fallbackViewId = fallbackTable?.lastOpenedViewId
         if (fallbackTableId && fallbackViewId) router.push(`/base/${baseId}/${fallbackTableId}/${fallbackViewId}`)
       }
@@ -68,8 +68,8 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
               <div className="flex flex-row items-center h-full max-w-[500px] truncate">
                 {
                   tablesData.map((tableData, index) => {
-                    const tableName = tableData.name
-                    const isCurrentTable = currentTable?.id === tableData.id
+                    const tableName = tableData?.name
+                    const isCurrentTable = currentTable?.id === tableData?.id
                     return (
                       isCurrentTable
                       ?
