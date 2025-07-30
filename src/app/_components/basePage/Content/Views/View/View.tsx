@@ -39,7 +39,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   }, []);
   return (
     <div className="flex flex-col w-full h-full text-[13px] bg-[#f6f8fc]">
-      <ColumnHeadings fields={tableData?.fields}/>
+      <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields}/>
       <div className="flex flex-col w-fit"
         ref={ref}
       >

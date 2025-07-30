@@ -5,8 +5,7 @@ import { CheckIcon } from "@radix-ui/react-icons";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 
-const Cell = ({ field, value, mainSelectedCell, isSelected, onClick, onCellChange } : { field: FieldData, value: string | undefined, mainSelectedCell?: [number,number], isSelected: boolean, onClick: () => void, onCellChange: (newValue: string) => void }) => {
-  const isFirst = mainSelectedCell?.[1] === 0
+const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, onCellChange } : { field: FieldData, value: string | undefined, mainSelectedCell?: [number,number], isFirst: boolean, isSelected: boolean, onClick: () => void, onCellChange: (newValue: string) => void }) => {
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -79,8 +78,7 @@ const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell 
   const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
-  const utils = api.useUtils()
-  const { mutate: updateRecord, status } = api.base.updateRecord.useMutation()
+  const { mutate: updateRecord } = api.base.updateRecord.useMutation()
   function onRecordChange(fieldId: string, newValue: string) {
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
@@ -92,16 +90,17 @@ const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell 
     setTimer(newTimer)
   }
   return (
-    <div className="flex flex-row items center h-8 border-box border-b-[1px] bg-white hover:bg-[#f8f8f8] cursor-default"
+    <div className="flex flex-row items center h-8 border-box border-b-[1px] cursor-default"
       style={{
-        borderColor: "#dfe2e4"
+        borderColor: "#dfe2e4",
+        backgroundColor: isHovered || isSelectedRow ? "#f8f8f8" : "white"
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white"
         style={{
-          backgroundColor: isHovered ? "#f8f8f8" : undefined
+          backgroundColor: isHovered || isSelectedRow ? "#f8f8f8" : undefined
         }}
       >
         <div className="flex items-center space-x-2">
@@ -129,6 +128,7 @@ const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell 
           key={index} field={field} 
           value={jsonData?.[field.id] as (string | undefined)} 
           mainSelectedCell={mainSelectedCell} 
+          isFirst={index === 0}
           isSelected={isSelectedRow && mainSelectedCell[1] === index} 
           onClick={() => setMainSelectedCell([rowNum-1, index])}
           onCellChange={(newValue: string) => onRecordChange(field.id, newValue)}

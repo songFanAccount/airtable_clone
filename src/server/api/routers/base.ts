@@ -233,6 +233,53 @@ export const baseRouter = createTRPCRouter({
         })
       })
     }),
+  addNewField: protectedProcedure
+    .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string(), columnNumber: z.number()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const newField = await tx.field.create({
+          data: {
+            name: input.fieldName,
+            columnNumber: input.columnNumber,
+            tableId: input.tableId,
+            type: input.fieldType === "TEXT" ? FieldType.Text : FieldType.Number
+          }
+        })
+        const records = await tx.record.findMany({
+          where: {
+            tableId: input.tableId
+          }
+        })
+        for (const record of records) {
+          const newData = record.data as Prisma.JsonObject
+          newData[newField.id] = ""
+          await tx.record.update({
+            where: { id: record.id},
+            data: { data: newData }
+          })
+        }
+      })
+    }),
+  deleteField: protectedProcedure
+    .input(z.object({fieldId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const deletedField = await tx.field.delete({
+          where: {id: input.fieldId}
+        })
+        const records = await tx.record.findMany({
+          where: {tableId: deletedField.tableId}
+        })
+        for (const record of records) {
+          const updatedData = record.data as Prisma.JsonObject
+          delete updatedData[deletedField.id]
+          await tx.record.update({
+            where: {id: record.id},
+            data: {data: updatedData}
+          })
+        }
+      })
+    }),
   updateRecord: protectedProcedure
     .input(z.object({recordId: z.string(), newRecordData: z.record(z.string(), z.string())}))
     .mutation(async ({ctx, input}) => {
