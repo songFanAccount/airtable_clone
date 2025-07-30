@@ -232,5 +232,17 @@ export const baseRouter = createTRPCRouter({
           }
         })
       })
+    }),
+  updateRecord: protectedProcedure
+    .input(z.object({recordId: z.string(), newRecordData: z.record(z.string(), z.string())}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.record.update({
+        where: {
+          id: input.recordId
+        },
+        data: {
+          data: input.newRecordData
+        }
+      })
     })
 })

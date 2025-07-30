@@ -25,7 +25,7 @@ const Header = ({ baseId, baseName } : HeaderProps) => {
       >
         <div className="flex-1 flex flex-row justify-start"><BaseInfoCorner baseId={baseId} baseName={baseName}/></div>
         <div className="flex-1 flex flex-row justify-center h-full"><BasePanelModes/></div>
-        <div className="flex-1 flex flex-row justify-end"><RightCorner/></div>
+        <div className="flex-1 flex flex-row justify-end"><RightCorner baseId={baseId}/></div>
       </div>
     </div>
   )

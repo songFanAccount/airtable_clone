@@ -2,24 +2,95 @@ import type { Prisma } from "@prisma/client"
 import type { FieldData, FieldsData, RecordData } from "../../../BasePage"
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { CheckIcon } from "@radix-ui/react-icons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { api } from "~/trpc/react";
 
-const Cell = ({ field, value, isFirst } : { field: FieldData, value: string | undefined, isFirst: boolean }) => {
+const Cell = ({ field, value, mainSelectedCell, isSelected, onClick, onCellChange } : { field: FieldData, value: string | undefined, mainSelectedCell?: [number,number], isSelected: boolean, onClick: () => void, onCellChange: (newValue: string) => void }) => {
+  const isFirst = mainSelectedCell?.[1] === 0
+  const [editing, setEditing] = useState<boolean>(false)
+  const [newValue, setNewValue] = useState<string>(value ?? "")
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [editing])
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const newValue = e.target.value
+    setNewValue(newValue)
+    onCellChange(newValue)
+  }
   return (
-    <div className="flex flex-row justify-between items-center w-[180px] h-full border-box border-r-[1px]"
+    <div className="relative flex flex-row justify-between items-center w-[180px] h-full"
       style={{
-        borderColor: isFirst ? "#d1d1d1" : "#dfe2e4"
+        backgroundColor: isSelected ? "white" : undefined,
+        borderRight: 
+          isSelected 
+          ?
+            isFirst ? "1px solid #d1d1d1" : "2px solid #166ee1"
+          :  
+            isFirst ? "1px solid #d1d1d1" : "1px solid #dfe2e4",
+        borderLeft: isSelected && mainSelectedCell?.[1] !== 1 ? "2px solid #166ee1" : undefined,
+        borderBottom: isSelected ? "2px solid #166ee1" : undefined,
+        borderTop: (isSelected && mainSelectedCell?.[0] !== 0) ? "2px solid #166ee1" : undefined,
       }}
+      onClick={onClick}
+      onDoubleClick={() => {if (!editing) setEditing(true)}}
     >
-      <span>{value}</span>
+      <input
+        ref={inputRef}
+        type="text"
+        value={newValue}
+        tabIndex={-1}
+        autoFocus={false}
+        onFocus={(e) => {
+          if (!editing) e.target.blur()
+        }}
+        onChange={handleChange}
+        onBlur={() => {
+          setEditing(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="w-full outline-none p-[6px]"
+        style={{
+          cursor: editing ? "text" : "default",
+          color: "rgb(29, 31, 37)"
+        }}
+      />
+      {
+        isSelected && !editing &&
+        <div className="absolute w-[8px] h-[8px] border-box border-[1px] bg-white z-50"
+          style={{
+            borderColor: "rgb(22, 110, 225)",
+            right: isSelected ? isFirst ? "-5px" : "-6px" : "-5px",
+            bottom: isSelected ? "-6px" : "-4px"
+          }}
+        />
+      }
     </div>
   )
 }
 
-const Record = ({ fields, record, rowNum } : { fields: FieldsData, record: RecordData, rowNum: number }) => {
+const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell } : { fields: FieldsData, record: RecordData, rowNum: number, mainSelectedCell?: [number, number], setMainSelectedCell: (cell?: [number,number]) => void }) => {
   const { id, data } = record
   const jsonData = data as Prisma.JsonObject
+  const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
   const [isHovered, setIsHovered] = useState<boolean>(false)
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
+  const utils = api.useUtils()
+  const { mutate: updateRecord, status } = api.base.updateRecord.useMutation()
+  function onRecordChange(fieldId: string, newValue: string) {
+    if (timer) clearTimeout(timer)
+    const newTimer = setTimeout(() => {
+      const newRecordData: Record<string, string> = jsonData as Record<string, string>
+      newRecordData[fieldId] = newValue
+      console.log(newRecordData)
+      updateRecord({recordId: id, newRecordData})
+    }, 1000)
+    setTimer(newTimer)
+  }
   return (
     <div className="flex flex-row items center h-8 border-box border-b-[1px] bg-white hover:bg-[#f8f8f8] cursor-default"
       style={{
@@ -53,7 +124,16 @@ const Record = ({ fields, record, rowNum } : { fields: FieldsData, record: Recor
           }
         </div>
       </div>
-      {fields?.map((field, index) => <Cell key={index} field={field} value={jsonData?.[field.id] as (string | undefined)} isFirst={index === 0}/>)}
+      {fields?.map((field, index) => 
+        <Cell 
+          key={index} field={field} 
+          value={jsonData?.[field.id] as (string | undefined)} 
+          mainSelectedCell={mainSelectedCell} 
+          isSelected={isSelectedRow && mainSelectedCell[1] === index} 
+          onClick={() => setMainSelectedCell([rowNum-1, index])}
+          onCellChange={(newValue: string) => onRecordChange(field.id, newValue)}
+        />
+      )}
     </div>
   )
 }
