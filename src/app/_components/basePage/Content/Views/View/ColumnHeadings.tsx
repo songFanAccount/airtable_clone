@@ -8,7 +8,7 @@ import { CheckIcon } from "@radix-ui/react-icons";
 import { MdKeyboardArrowDown as DropdownIcon, MdOutlineModeEdit as RenameIcon } from "react-icons/md";
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import { FieldType } from "@prisma/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { toastTODO } from "~/hooks/helpers";
 
@@ -89,7 +89,8 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
     </Popover.Root>
   )
 }
-const ColumnHeadings = ({ tableId, fields } : { tableId?: string, fields: FieldsData }) => {
+const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void }) => {
+  const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
   const [newFieldName, setNewFieldName] = useState<string>("")
   const utils = api.useUtils()
@@ -98,6 +99,12 @@ const ColumnHeadings = ({ tableId, fields } : { tableId?: string, fields: Fields
       await utils.base.getAllFromBase.invalidate()
     }
   })
+  useEffect(() => {
+    if (!createOpen) {
+      setNewFieldName("")
+      setNewFieldType(undefined)
+    }
+  }, [createOpen])
   function onCreateField() {
     if (status === "pending") return
     if (tableId && newFieldType && fields) {
@@ -121,6 +128,7 @@ const ColumnHeadings = ({ tableId, fields } : { tableId?: string, fields: Fields
       createField({ tableId: tableId, fieldName, fieldType, columnNumber })
       setNewFieldName("")
       setNewFieldType(undefined)
+      setCreateOpen(false)
     }
   }
   return (
@@ -132,6 +140,8 @@ const ColumnHeadings = ({ tableId, fields } : { tableId?: string, fields: Fields
       <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white">
         <div className="flex items-center space-x-2">
           <Checkbox.Root
+            checked={selectAll}
+            onCheckedChange={onCheck}
             id="c1"
             className="w-4 h-4 mx-2 rounded border border-gray-300 flex items-center justify-center
                       data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
@@ -146,15 +156,13 @@ const ColumnHeadings = ({ tableId, fields } : { tableId?: string, fields: Fields
         fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0}/>)
       }
       <Popover.Root
-        onOpenChange={(open) => {
-          if (!open) {
-            setNewFieldType(undefined)
-            setNewFieldName("")
-          }
-        }}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
       >
         <Popover.Trigger asChild>
-          <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-[#dfe2e4] bg-white hover:bg-[#f8f8f8] cursor-pointer">
+          <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-[#dfe2e4] bg-white hover:bg-[#f8f8f8] cursor-pointer"
+            onClick={() => setCreateOpen(true)}
+          >
             <AddIcon className="h-5 w-5"/>
           </button>
         </Popover.Trigger>

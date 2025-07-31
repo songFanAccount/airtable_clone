@@ -1,10 +1,13 @@
-import type { Prisma } from "@prisma/client"
+import { FieldType, type Prisma } from "@prisma/client"
 import type { FieldData, FieldsData, RecordData } from "../../../BasePage"
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { CheckIcon } from "@radix-ui/react-icons";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 
+function isNumber(str: string): boolean {
+  return /^[0-9]+(\.[0-9]+)?$/.test(str);
+}
 const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, onCellChange } : { field: FieldData, value: string | undefined, mainSelectedCell?: [number,number], isFirst: boolean, isSelected: boolean, onClick: () => void, onCellChange: (newValue: string) => void }) => {
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -16,9 +19,25 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
   }, [editing])
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const newValue = e.target.value
-    setNewValue(newValue)
-    onCellChange(newValue)
+    const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(newValue))
+    if (ok) {
+      setNewValue(newValue)
+      onCellChange(newValue)
+    }
   }
+  function onKeyDown(event: KeyboardEvent)  {
+    if (editing || !isSelected) return
+    const key = event.key
+    const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(key))
+    if (key.length === 1 && ok) {
+      setEditing(true)
+      setNewValue("")
+    }
+  }
+  useEffect(() => {
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [isSelected, editing, setEditing, setNewValue])
   return (
     <div className="relative flex flex-row justify-between items-center w-[180px] h-full"
       style={{
@@ -55,7 +74,8 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
         className="w-full outline-none p-[6px]"
         style={{
           cursor: editing ? "text" : "default",
-          color: "rgb(29, 31, 37)"
+          color: "rgb(29, 31, 37)",
+          textAlign: field.type === FieldType.Text ? "start" : "end"
         }}
       />
       {
@@ -72,11 +92,12 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
   )
 }
 
-const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell } : { fields: FieldsData, record: RecordData, rowNum: number, mainSelectedCell?: [number, number], setMainSelectedCell: (cell?: [number,number]) => void }) => {
+const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell } : { fields: FieldsData, record: RecordData, recordSelected: boolean, onCheck: () => void, rowNum: number, mainSelectedCell?: [number, number], setMainSelectedCell: (cell?: [number,number]) => void }) => {
   const { id, data } = record
   const jsonData = data as Prisma.JsonObject
   const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
   const [isHovered, setIsHovered] = useState<boolean>(false)
+  const active = isHovered || isSelectedRow || recordSelected
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
   const { mutate: updateRecord } = api.base.updateRecord.useMutation()
   function onRecordChange(fieldId: string, newValue: string) {
@@ -84,7 +105,6 @@ const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell 
     const newTimer = setTimeout(() => {
       const newRecordData: Record<string, string> = jsonData as Record<string, string>
       newRecordData[fieldId] = newValue
-      console.log(newRecordData)
       updateRecord({recordId: id, newRecordData})
     }, 1000)
     setTimer(newTimer)
@@ -93,25 +113,27 @@ const Record = ({ fields, record, rowNum, mainSelectedCell, setMainSelectedCell 
     <div className="flex flex-row items center h-8 border-box border-b-[1px] cursor-default"
       style={{
         borderColor: "#dfe2e4",
-        backgroundColor: isHovered || isSelectedRow ? "#f8f8f8" : "white"
+        backgroundColor: active ? "#f8f8f8" : "white"
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white"
         style={{
-          backgroundColor: isHovered || isSelectedRow ? "#f8f8f8" : undefined
+          backgroundColor: active ? "#f8f8f8" : undefined
         }}
       >
         <div className="flex items-center space-x-2">
           {
-            isHovered
+            active
             ?
               <Checkbox.Root
                 id="c1"
                 className="w-4 h-4 mx-2 rounded border border-gray-300 flex items-center justify-center
                 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                >
+                checked={recordSelected}
+                onCheckedChange={onCheck}
+              >
                 <Checkbox.Indicator>
                   <CheckIcon className="text-white w-4 h-4" />
                 </Checkbox.Indicator>

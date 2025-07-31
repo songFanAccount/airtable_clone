@@ -11,6 +11,24 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   const records: RecordsData = tableData?.records
   if (records) records.sort((a, b) => a.position - b.position)
   const largestPosition = (records && records.length > 0 && records[records.length - 1]) ? records[records.length - 1]?.position : undefined
+  const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set())
+  const [selectAll, setSelectAll] = useState<boolean>(false)
+
+  function onSelectAll() {
+    const newSelectAll = !selectAll
+    if (newSelectAll) {
+      if (records) setSelectedRecords(new Set(Array.from({length: records.length}, (_, i) => i)))
+    } else setSelectedRecords(new Set())
+    setSelectAll(newSelectAll)
+  }
+  function checkRecord(i: number) {
+    const newSelectedRecords = new Set(selectedRecords)
+    if (newSelectedRecords.has(i)) {
+      newSelectedRecords.delete(i)
+      setSelectAll(false)
+    } else newSelectedRecords.add(i)
+    setSelectedRecords(newSelectedRecords)
+  }
   const utils = api.useUtils()
   const { mutate: addRecord } = api.base.addNewRecord.useMutation({
     onSuccess: async (createdRecord) => {
@@ -29,6 +47,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     function handleClickOutside(event: MouseEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
+        setSelectedRecords(new Set())
       }
     }
 
@@ -37,14 +56,20 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+  useEffect(() => {
+    if (mainSelectedCell) {
+      setSelectAll(false)
+      setSelectedRecords(new Set())
+    }
+  }, [mainSelectedCell])
   return (
     <div className="flex flex-col w-full h-full text-[13px] bg-[#f6f8fc]">
-      <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields}/>
+      <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
       <div className="flex flex-col w-fit"
         ref={ref}
       >
         {
-          records?.map((record, index) => <Record key={index} fields={fields} record={record} rowNum={index + 1} mainSelectedCell={mainSelectedCell} setMainSelectedCell={setMainSelectedCell}/>)
+          records?.map((record, index) => <Record key={index} fields={fields} record={record} recordSelected={selectedRecords.has(index)} onCheck={() => checkRecord(index)} rowNum={index + 1} mainSelectedCell={mainSelectedCell} setMainSelectedCell={setMainSelectedCell}/>)
         }
         <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
           style={{
