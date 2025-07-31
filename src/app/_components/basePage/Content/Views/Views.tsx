@@ -8,6 +8,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const Views = ({ tableData, views, currentView, navToView } : { tableData: TableData, views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
+  if (!tableData) return <></>
   return (
     <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
       <div className="h-full w-full flex flex-col">

@@ -1,4 +1,4 @@
-import { FieldType, type Prisma } from "@prisma/client"
+import { FieldType, Prisma } from "@prisma/client"
 import type { FieldData, FieldsData, RecordData } from "../../../BasePage"
 import * as Checkbox from "@radix-ui/react-checkbox";
 import * as Popover from "@radix-ui/react-popover";
@@ -25,6 +25,9 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
+  useEffect(() => {
+    setNewValue(value ?? "")
+  }, [value])
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -117,6 +120,7 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
             padding: "8px",
             width: multipleRecordsSelected ? "240px" : "180px"
           }}
+          data-popover="true"
         >
           <div className="flex flex-col w-full text-gray-700 text-[13px]">
             <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
@@ -145,7 +149,11 @@ interface RecordProps {
 }
 const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const { id, data } = record
-  const jsonData = data as Prisma.JsonObject
+  const [recordData, setRecordData] = useState<Prisma.JsonValue>(data)
+  useEffect(() => {
+    setRecordData(data)
+  }, [data])
+  const jsonData = recordData as Prisma.JsonObject
   const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const active = isHovered || isSelectedRow || recordSelected

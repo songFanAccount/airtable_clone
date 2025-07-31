@@ -38,7 +38,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     }
   })
   function onAddRecord() {
-    if (tableData && fields && largestPosition) addRecord({tableId: tableData.id, newPosition: Math.floor(largestPosition) + 1, fieldIds: fields.map(field => field.id)})
+    if (tableData && fields) addRecord({tableId: tableData.id, newPosition: Math.floor(largestPosition ?? 0) + 1, fieldIds: fields.map(field => field.id)})
   }
   const { mutate: deleteRecords, status } = api.base.deleteRecords.useMutation({
     onSuccess: async () => {
@@ -60,10 +60,10 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     setMainSelectedCell(undefined)
   }
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      const popover = document.querySelector('[data-popover="true"]');
+      if (ref.current && !ref.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
         setSelectedRecords(new Set())
         setSelectAll(false)
@@ -85,36 +85,38 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     }
   }, [mainSelectedCell])
   return (
-    <div ref={ref} className="flex flex-col w-full h-full text-[13px] bg-[#f6f8fc]">
-      <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
-      <div className="flex flex-col w-fit">
-        {
-          records?.map((record, index) => 
-            <Record 
-              key={index} 
-              fields={fields} 
-              record={record} 
-              recordSelected={selectedRecords.has(index)} 
-              onCheck={() => checkRecord(index)} 
-              rowNum={index + 1} 
-              mainSelectedCell={mainSelectedCell} 
-              setMainSelectedCell={setMainSelectedCell}
-              multipleRecordsSelected={selectedRecords.size > 1}
-              onDeleteRecord={() => onDeleteSelectedRecords(index)}
-            />
-          )
-        }
-        <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
-          style={{
-            borderColor: "#dfe2e4"
-          }}
-          onClick={onAddRecord}
-        >
-          <div className="w-[87px] h-full flex flex-row items-center pl-4">
-            <AddIcon className="w-5 h-5 text-gray-500 ml-[6px]"/>
-          </div>
-          <div className="w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]"/>
-        </button>
+    <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
+      <div ref={ref} className="flex flex-col">
+        <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
+        <div className="flex flex-col w-fit">
+          {
+            records?.map((record, index) => 
+              <Record 
+                key={index} 
+                fields={fields} 
+                record={record} 
+                recordSelected={selectedRecords.has(index)} 
+                onCheck={() => checkRecord(index)} 
+                rowNum={index + 1} 
+                mainSelectedCell={mainSelectedCell} 
+                setMainSelectedCell={setMainSelectedCell}
+                multipleRecordsSelected={selectedRecords.size > 1}
+                onDeleteRecord={() => onDeleteSelectedRecords(index)}
+              />
+            )
+          }
+          <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
+            style={{
+              borderColor: "#dfe2e4"
+            }}
+            onClick={onAddRecord}
+          >
+            <div className="w-[87px] h-full flex flex-row items-center pl-4">
+              <AddIcon className="w-5 h-5 text-gray-500 ml-[6px]"/>
+            </div>
+            <div className="w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]"/>
+          </button>
+        </div>
       </div>
     </div>
   )
