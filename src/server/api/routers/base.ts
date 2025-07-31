@@ -291,5 +291,18 @@ export const baseRouter = createTRPCRouter({
           data: input.newRecordData
         }
       })
+    }),
+  deleteRecords: protectedProcedure
+    .input(z.object({
+      recordIds: z.array(z.string())
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.record.deleteMany({
+        where: {
+          id: {
+            in: input.recordIds
+          }
+        }
+      })
     })
 })

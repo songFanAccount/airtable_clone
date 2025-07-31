@@ -40,7 +40,25 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   function onAddRecord() {
     if (tableData && fields && largestPosition) addRecord({tableId: tableData.id, newPosition: Math.floor(largestPosition) + 1, fieldIds: fields.map(field => field.id)})
   }
+  const { mutate: deleteRecords, status } = api.base.deleteRecords.useMutation({
+    onSuccess: async () => {
+      await utils.base.getAllFromBase.invalidate()
+    }
+  })
   const [mainSelectedCell, setMainSelectedCell] = useState<[number, number] | undefined>(undefined)
+  function onDeleteSelectedRecords(callIndex: number) {
+    const deleteIndices = [...selectedRecords]
+    if (!deleteIndices.includes(callIndex)) deleteIndices.push(callIndex)
+    const deleteIds: string[] = []
+    deleteIndices.forEach(deleteInd => {
+      const record = records?.[deleteInd]
+      if (record) deleteIds.push(record.id)
+    })
+    deleteRecords({ recordIds: deleteIds })
+    setSelectedRecords(new Set())
+    setSelectAll(false)
+    setMainSelectedCell(undefined)
+  }
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +66,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
         setSelectedRecords(new Set())
+        setSelectAll(false)
       }
     }
 
@@ -58,18 +77,32 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   }, []);
   useEffect(() => {
     if (mainSelectedCell) {
-      setSelectAll(false)
-      setSelectedRecords(new Set())
+      const selectedRowIndex = mainSelectedCell[0]
+      if (!selectedRecords.has(selectedRowIndex)) {
+        setSelectAll(false)
+        setSelectedRecords(new Set())
+      }
     }
   }, [mainSelectedCell])
   return (
-    <div className="flex flex-col w-full h-full text-[13px] bg-[#f6f8fc]">
+    <div ref={ref} className="flex flex-col w-full h-full text-[13px] bg-[#f6f8fc]">
       <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
-      <div className="flex flex-col w-fit"
-        ref={ref}
-      >
+      <div className="flex flex-col w-fit">
         {
-          records?.map((record, index) => <Record key={index} fields={fields} record={record} recordSelected={selectedRecords.has(index)} onCheck={() => checkRecord(index)} rowNum={index + 1} mainSelectedCell={mainSelectedCell} setMainSelectedCell={setMainSelectedCell}/>)
+          records?.map((record, index) => 
+            <Record 
+              key={index} 
+              fields={fields} 
+              record={record} 
+              recordSelected={selectedRecords.has(index)} 
+              onCheck={() => checkRecord(index)} 
+              rowNum={index + 1} 
+              mainSelectedCell={mainSelectedCell} 
+              setMainSelectedCell={setMainSelectedCell}
+              multipleRecordsSelected={selectedRecords.size > 1}
+              onDeleteRecord={() => onDeleteSelectedRecords(index)}
+            />
+          )
         }
         <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
           style={{
