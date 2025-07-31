@@ -25,6 +25,7 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
     }
   })
   function onDeleteField() {
+    if (status === "pending") return
     if (field) {
       deleteField({fieldId: field.id})
       setEditing(false)
@@ -75,8 +76,9 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
                   <RenameIcon className="w-[14px] h-[14px]"/>
                   <span>Rename field</span>
                 </button>
-                <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
+                <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-pointer"
                   onClick={onDeleteField}
+                  disabled={status === "pending"}
                 >
                   <DeleteIcon className="w-[14px] h-[14px]"/>
                   <span>Delete field</span>

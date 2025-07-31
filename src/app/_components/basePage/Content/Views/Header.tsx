@@ -5,6 +5,7 @@ import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
 import ViewConfigs from "./ViewConfigs";
 import * as Dialog from "@radix-ui/react-dialog";
+import { toast } from "react-toastify";
 
 const ViewSearch = () => {
   return (
@@ -27,7 +28,9 @@ const Header = ({ currentView } : { currentView: ViewData }) => {
             <MenuIcon className="w-4 h-4"/>
           </button>
         </Dialog.Trigger>
-        <button className="px-2 hover:bg-[#f2f2f2] h-[26px] flex flex-row items-center gap-2 cursor-pointer rounded-[3px]">
+        <button className="px-2 hover:bg-[#f2f2f2] h-[26px] flex flex-row items-center gap-2 cursor-pointer rounded-[3px]"
+          onClick={() => toast("To rename/delete view, hover the view from the side bar and open options.")}
+        >
           <TableIcon className="w-4 h-4 text-[#3380e5]"/>
           <span className="text-[13px] font-[500]">{currentView?.name}</span>
           <DropdownIcon className="w-4 h-4 text-gray-700"/>

@@ -77,11 +77,10 @@ export type RecordData = {
 export type RecordsData = RecordData[] | undefined
 
 const BasePage = () => {
-
   const { baseId, tableId, viewId } = useParams()
   const router = useRouter()
   const { data: session, status } = useSession()
-  const { data: baseData, isLoading } = api.base.getAllFromBase.useQuery({ id: baseId as string }, {
+  const { data: baseData } = api.base.getAllFromBase.useQuery({ id: baseId as string }, {
     enabled: !!session?.user
   })
   const tableData = baseData?.tables.find((table) => table.id === tableId)

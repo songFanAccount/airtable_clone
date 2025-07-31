@@ -4,12 +4,21 @@ import { Loader2 as LoadingIcon } from "lucide-react";
 import { GoPlus as AddTableIcon } from "react-icons/go";
 import { VscEdit as RenameIcon } from "react-icons/vsc";
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
-import { toastNoUI, toastTODO } from "~/hooks/helpers";
+import { toastNoUI } from "~/hooks/helpers";
 import type { TableData, TablesData } from "../BasePage";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { useState } from "react";
 const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tablesData: TablesData, currentTable: TableData }) => {
+  if (tablesData) tablesData.sort((a, b) => {
+    if (a && b) {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+    return 0;
+  })
+  const [isRenaming, setIsRenaming] = useState<boolean>(false)
+  const [newName, setNewName] = useState<string>("")
   const router = useRouter()
   const utils = api.useUtils()
   const { mutate: addNewTable, status } = api.base.addNewTable.useMutation({
@@ -24,6 +33,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
   })
   function createNewTable() {
+    if (status === "pending") return
     if (baseId && tablesData) {
       let newTableNumber = 1
       while (tablesData.some(table => table?.name === `Table ${newTableNumber}`)) newTableNumber++
@@ -42,9 +52,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
   })
   function onDeleteTable(tableData: TableData, isFirstTable=false) {
-    if (!tablesData) return
+    if (!tablesData || deleteTableStatus === "pending") return
     if (tablesData.length <= 1) {
-      toast("Cannot delete only table!")
+      toast.error("Cannot delete only table!")
       return
     }
     if (baseId && tableData && tablesData.length > 1 && tablesData[0] && tablesData[1]) {
@@ -53,6 +63,34 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   }
   function onClickTableTab(tableData: TableData) {
     if (tableData) router.push(`/base/${baseId}/${tableData.id}/${tableData.lastOpenedViewId}`)
+  }
+  const { mutate: renameTable, status: renameStatus } = api.base.renameTable.useMutation({
+    onSuccess: async (updatedTable) => {
+      if (updatedTable) {
+        await utils.base.getAllFromBase.invalidate()
+      }
+    }
+  })
+  function handleRename() {
+    if (tablesData && currentTable) {
+      const newNameTrimmed = newName.trim()
+      if (newNameTrimmed === "") {
+        toast.error("Name cannot be empty!")
+        return
+      }
+      const currentName = currentTable.name
+      if (newNameTrimmed === currentName) {
+        setIsRenaming(false)
+        setNewName(currentName)
+        return
+      }
+      if (tablesData.some(tableData => tableData?.name === newNameTrimmed)) {
+        toast.error(`A table named "${newNameTrimmed}" already exists!`)
+        return
+      }
+      renameTable({ tableId: currentTable.id, newName: newNameTrimmed })
+      setIsRenaming(false)
+    } else setIsRenaming(false)
   }
   return (
     <div className="h-8 bg-[#fff1ff] text-[13px] border-b-[1px] border-box flex flex-row justify-between items-center"
@@ -73,7 +111,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                     return (
                       isCurrentTable
                       ?
-                        <Popover.Root key={index}>
+                        <Popover.Root key={index} onOpenChange={(open) => {
+                          if (!open) setIsRenaming(false)
+                        }}>
                           <Popover.Trigger asChild>
                             <button className="flex-shrink-0 h-[calc(100%+1px)] px-3 font-[500] text-black bg-white border-box border-t-[1px] border-r-[1px] rounded-[6px] cursor-pointer"
                               style={{
@@ -94,25 +134,69 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                             <Popover.Content
                               side="bottom"
                               align="start"
-                              className="bg-white rounded-[6px] p-4 z-50 w-[180px] relative top-2 left-0"
+                              className="bg-white rounded-[6px] p-4 z-50 relative top-2 left-0"
                               style={{
-                                boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)"
+                                boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
+                                width: isRenaming ? "240px" : "180px"
                               }}
                             >
-                              <div className="flex flex-col w-full text-gray-700 text-[13px]">
-                                <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
-                                  onClick={() => toastTODO("Table rename")}
-                                >
-                                  <RenameIcon className="w-[14px] h-[14px]"/>
-                                  <span>Rename table</span>
-                                </button>
-                                <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
-                                  onClick={() => onDeleteTable(tableData, index === 0)}
-                                >
-                                  <DeleteIcon className="w-[14px] h-[14px]"/>
-                                  <span>Delete table</span>
-                                </button>
-                              </div>
+                              {
+                                isRenaming
+                                ?
+                                  <div className="flex flex-col gap-4 w-full">
+                                    <input 
+                                      className="text-[14px] w-full rounded-[3px] p-2"
+                                      style={{
+                                        outline: "2px solid #166ee1"
+                                      }}
+                                      autoFocus={true}
+                                      onFocus={(e) => e.target.select()}
+                                      value={newName}
+                                      onChange={(e) => {
+                                        setNewName(e.target.value)
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleRename()
+                                      }}
+                                    />
+                                    <div className="flex flex-row items-center justify-end w-full gap-4 h-8 text-[13px]">
+                                      <button className="cursor-pointer"
+                                        onClick={() => {
+                                          setNewName("")
+                                          setIsRenaming(false)
+                                        }}
+                                      >
+                                        <span>Cancel</span>
+                                      </button>
+                                      <button className="text-white font-[500] bg-[#166ee1] h-full px-3 rounded-[6px] cursor-pointer"
+                                        onClick={handleRename}
+                                      >
+                                        <span>Rename</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                :
+                                  <div className="flex flex-col w-full text-gray-700 text-[13px]">
+                                    <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-not-allowed"
+                                      onClick={() => {
+                                        if (renameStatus === "pending" || status === "pending") return
+                                        setIsRenaming(true)
+                                        setNewName(tableName ?? "")
+                                      }}
+                                      disabled={renameStatus === "pending" || status === "pending"}
+                                    >
+                                      <RenameIcon className="w-[14px] h-[14px]"/>
+                                      <span>Rename table</span>
+                                    </button>
+                                    <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-not-allowed"
+                                      onClick={() => onDeleteTable(tableData, index === 0)}
+                                      disabled={status === "pending" || renameStatus === "pending"}
+                                    >
+                                      <DeleteIcon className="w-[14px] h-[14px]"/>
+                                      <span>Delete table</span>
+                                    </button>
+                                  </div>
+                              }
                             </Popover.Content>
                           </Popover.Portal>
                         </Popover.Root>
@@ -133,8 +217,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                 <button className="mx-3 cursor-pointer" onClick={toastNoUI}>
                   <DropdownIcon className="text-[16px]"/>
                 </button>
-                <button className="flex flex-row group items-center gap-2 px-3 cursor-pointer"
+                <button className="flex flex-row group items-center gap-2 px-3 cursor-pointer disabled:cursor-not-allowed"
                   onClick={createNewTable}
+                  disabled={status === "pending"}
                 >
                   <AddTableIcon className="w-5 h-5 group-hover:text-black"/>
                   <span className="mt-[1px] group-hover:text-black">Add new table</span>

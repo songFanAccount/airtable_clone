@@ -195,6 +195,14 @@ export const baseRouter = createTRPCRouter({
         return updatedBase
       })
     }),
+  renameTable: protectedProcedure
+    .input(z.object({tableId: z.string(), newName: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.table.update({
+        where: {id: input.tableId},
+        data: {name: input.newName}
+      })
+    }),
   addNewView: protectedProcedure
     .input(z.object({tableId: z.string(), newName: z.string()}))
     .mutation(async ({ctx, input}) => {
@@ -232,6 +240,14 @@ export const baseRouter = createTRPCRouter({
           data: {lastOpenedViewId: earliestCreatedView.id}
         })
         return earliestCreatedView
+      })
+    }),
+  renameView: protectedProcedure
+    .input(z.object({viewId: z.string(), newName: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.view.update({
+        where: {id: input.viewId},
+        data: {name: input.newName}
       })
     }),
   addNewRecord: protectedProcedure

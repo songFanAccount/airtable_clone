@@ -6,17 +6,19 @@ import { StarIcon } from "@heroicons/react/24/outline"
 import { HiOutlineDotsHorizontal as OptionsIcon } from "react-icons/hi";
 import { MdOutlineModeEdit as RenameIcon } from "react-icons/md";
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
-import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers";
+import { toastNoFunction, toastNoUI } from "~/hooks/helpers";
 import * as Popover from "@radix-ui/react-popover";
 import type { ViewData, ViewsData } from "../../BasePage";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { toast } from "react-toastify";
 
-const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void, onlyView: boolean }) => {
+const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { views: ViewsData, viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void, onlyView: boolean }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
-  const showOptions = isHovered || actionsOpen
+  const [isRenaming, setIsRenaming] = useState<boolean>(false)
+  const showOptions = (isHovered || actionsOpen) && !isRenaming
+  const [newName, setNewName] = useState<string>(viewData?.name ?? "")
   const StartIcon = showOptions ? StarIcon : TableIcon
   const utils = api.useUtils()
   const { mutate: deleteView, status } = api.base.deleteView.useMutation({
@@ -28,13 +30,38 @@ const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: V
     }
   }) 
   function onDeleteView() {
+    if (status === "pending") return
     if (onlyView) {
-      toast("Cannot delete only view!")
+      toast.error("Cannot delete only view!")
       return
     }
     if (viewData) {
       deleteView({ viewId: viewData.id, isCurrentView: isCurrent })
       setActionsOpen(false)
+    }
+  }
+  const { mutate: renameView, status: renameStatus } = api.base.renameView.useMutation({
+    onSuccess: async (updatedView) => {
+      if (updatedView) {
+        await utils.base.getAllFromBase.invalidate()
+      }
+    }
+  })
+  function handleOnBlur() {
+    setIsRenaming(false)
+    if (viewData) {
+      const newNameTrimmed = newName.trim()
+      if (newNameTrimmed === "") {
+        setNewName(viewData.name)
+        return
+      }
+      if (newNameTrimmed === viewData.name) return
+      if (views?.some(viewData => viewData?.name === newNameTrimmed)) {
+        setNewName(viewData.name)
+        toast.error(`A view named "${newNameTrimmed}" already exists!`)
+        return
+      }
+      renameView({ viewId: viewData.id, newName: newNameTrimmed })
     }
   }
   return (
@@ -47,7 +74,7 @@ const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: V
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => {if(viewData) navToView(viewData.id)}}
       >
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-2 w-full">
           <StartIcon className="w-4 h-4"
             color={showOptions ? undefined : "#3380e5"}
             onClick={(e) => {
@@ -55,7 +82,27 @@ const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: V
               toastNoFunction()
             }}
           />
-          <span className="font-[500]">{viewData?.name}</span>
+          <div className="w-full font-[500]">
+            {
+              isRenaming
+              ?
+                <input 
+                  className="w-full bg-white outline-none border-[2px] border-[#bfbfbf] rounded-[3px] border-box pl-[2px] h-[19px] relative left-[-4px]"
+                  autoFocus={true}
+                  onFocus={(e) => e.target.select()}
+                  value={newName}
+                  onChange={(e) => {
+                    setNewName(e.target.value)
+                  }}
+                  onBlur={handleOnBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleOnBlur()
+                  }}
+                />
+              :
+                <span className="">{viewData?.name}</span>
+            }
+          </div>
         </div>
         {
           showOptions &&
@@ -83,14 +130,19 @@ const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: V
           }}
         >
           <div className="flex flex-col w-full text-gray-700 text-[13px]">
-            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
-              onClick={() => toastTODO("Rename view")}
+            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-not-allowed"
+              disabled={renameStatus === "pending"}
+              onClick={() => {
+                if (renameStatus === "pending") return
+                setIsRenaming(true)
+              }}
             >
               <RenameIcon className="w-[14px] h-[14px]"/>
               <span>Rename view</span>
             </button>
-            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
+            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-not-allowed"
               onClick={onDeleteView}
+              disabled={status === "pending"}
             >
               <DeleteIcon className="w-[14px] h-[14px]"/>
               <span>Delete view</span>
@@ -113,6 +165,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
     }
   })
   function onCreateView() {
+    if (status === "pending") return
     if (views && currentView) {
       let newViewNumber = 1
       while (views.some(view => view?.name === `Grid ${newViewNumber}`)) newViewNumber++
@@ -125,7 +178,8 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
   return (
     <div className="flex flex-col w-full text-[13px]">
       <div className="flex flex-col w-full pb-2">
-        <button className="pl-4 pr-3 flex flex-row items-center h-8 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer text-gray-800"
+        <button className="pl-4 pr-3 flex flex-row items-center h-8 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer text-gray-800 disabled:cursor-not-allowed"
+          disabled={status === "pending"}
           onClick={onCreateView}
         >
           <AddIcon className="w-4 h-4"/>
@@ -142,7 +196,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
         </div>
       </div>
       {
-        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView} onlyView={views.length === 1}/>)
+        views?.map((viewData, index) => <ViewButton key={index} views={views} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView} onlyView={views.length === 1}/>)
       }
     </div>
   );
