@@ -4,40 +4,101 @@ import { RiSettings4Line as SettingsIcon } from "react-icons/ri";
 import { MdOutlineTableChart as TableIcon } from "react-icons/md";
 import { StarIcon } from "@heroicons/react/24/outline"
 import { HiOutlineDotsHorizontal as OptionsIcon } from "react-icons/hi";
-import { toastNoFunction, toastNoUI } from "~/hooks/helpers";
+import { MdOutlineModeEdit as RenameIcon } from "react-icons/md";
+import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
+import { toastNoFunction, toastNoUI, toastTODO } from "~/hooks/helpers";
+import * as Popover from "@radix-ui/react-popover";
 import type { ViewData, ViewsData } from "../../BasePage";
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { toast } from "react-toastify";
 
-const ViewButton = ({ viewData, isCurrent, navToView } : { viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void }) => {
+const ViewButton = ({ viewData, isCurrent, navToView, onlyView } : { viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void, onlyView: boolean }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
-  const StartIcon = isHovered ? StarIcon : TableIcon
-  return (
-    <div className="flex flex-row items-center justify-between h-[32.25px] hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer px-3 py-2"
-      style={{
-        backgroundColor: isCurrent || isHovered ? "#f2f2f2" : undefined
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => {if(viewData) navToView(viewData.id)}}
-    >
-      <div className="flex flex-row items-center gap-2">
-        <StartIcon className="w-4 h-4"
-          color={isHovered ? undefined : "#3380e5"}
-          onClick={(e) => {
-            e.stopPropagation()
-            toastNoFunction()
-          }}
-        />
-        <span className="font-[500]">{viewData?.name}</span>
-      </div>
-      {
-        isHovered &&
-        <button className="mr-[6px] cursor-pointer">
-          <OptionsIcon className="w-4 h-4"/>
-        </button>
+  const [actionsOpen, setActionsOpen] = useState<boolean>(false)
+  const showOptions = isHovered || actionsOpen
+  const StartIcon = showOptions ? StarIcon : TableIcon
+  const utils = api.useUtils()
+  const { mutate: deleteView, status } = api.base.deleteView.useMutation({
+    onSuccess: async (newCurrentView) => {
+      await utils.base.getAllFromBase.invalidate()
+      if (newCurrentView) {
+        navToView(newCurrentView.id)
       }
-    </div>
+    }
+  }) 
+  function onDeleteView() {
+    if (onlyView) {
+      toast("Cannot delete only view!")
+      return
+    }
+    if (viewData) {
+      deleteView({ viewId: viewData.id, isCurrentView: isCurrent })
+      setActionsOpen(false)
+    }
+  }
+  return (
+    <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
+      <div className="flex flex-row items-center justify-between h-[32.25px] hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer px-3 py-2"
+        style={{
+          backgroundColor: isCurrent ? "#f2f2f2" : undefined
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => {if(viewData) navToView(viewData.id)}}
+      >
+        <div className="flex flex-row items-center gap-2">
+          <StartIcon className="w-4 h-4"
+            color={showOptions ? undefined : "#3380e5"}
+            onClick={(e) => {
+              e.stopPropagation()
+              toastNoFunction()
+            }}
+          />
+          <span className="font-[500]">{viewData?.name}</span>
+        </div>
+        {
+          showOptions &&
+          <Popover.Trigger asChild>
+            <button className="h-[32.25px] mr-[6px] cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation()
+                setActionsOpen(true)
+              }}
+            >
+              <OptionsIcon className="w-4 h-4"/>
+            </button>
+          </Popover.Trigger>
+        }
+      </div>
+      <Popover.Portal>
+        <Popover.Content
+          side="bottom"
+          align="start"
+          className="bg-white rounded-[6px] z-50 relative top-1 left-1"
+          style={{
+            boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
+            padding: "8px",
+            width: "180px"
+          }}
+        >
+          <div className="flex flex-col w-full text-gray-700 text-[13px]">
+            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
+              onClick={() => toastTODO("Rename view")}
+            >
+              <RenameIcon className="w-[14px] h-[14px]"/>
+              <span>Rename view</span>
+            </button>
+            <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
+              onClick={onDeleteView}
+            >
+              <DeleteIcon className="w-[14px] h-[14px]"/>
+              <span>Delete view</span>
+            </button>
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
@@ -81,7 +142,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
         </div>
       </div>
       {
-        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView}/>)
+        views?.map((viewData, index) => <ViewButton key={index} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView} onlyView={views.length === 1}/>)
       }
     </div>
   );

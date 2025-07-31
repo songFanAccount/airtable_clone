@@ -216,6 +216,24 @@ export const baseRouter = createTRPCRouter({
         return newView
       })
     }),
+  deleteView: protectedProcedure
+    .input(z.object({viewId: z.string(), isCurrentView: z.boolean()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const deletedView = await tx.view.delete({
+          where: {id: input.viewId}
+        })
+        if (!input.isCurrentView) return null
+        const earliestCreatedView = await tx.view.findFirstOrThrow({
+          where: {tableId: deletedView.tableId},
+        })
+        await tx.table.update({
+          where: {id: deletedView.tableId},
+          data: {lastOpenedViewId: earliestCreatedView.id}
+        })
+        return earliestCreatedView
+      })
+    }),
   addNewRecord: protectedProcedure
     .input(z.object({tableId: z.string(), fieldIds: z.array(z.string()), newPosition: z.number()}))
     .mutation(async ({ctx, input}) => {
