@@ -89,6 +89,11 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
       <div ref={ref} className="flex flex-col">
         <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
         <div className="flex flex-col w-fit">
+          <div className="flex flex-col"
+            style={{
+              width: fields ? `${fields.length * 180 + 87}px` : undefined
+            }}
+          >
           {
             records?.map((record, index) => 
               <Record 
@@ -105,6 +110,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
               />
             )
           }
+          </div>
           <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
             style={{
               borderColor: "#dfe2e4"

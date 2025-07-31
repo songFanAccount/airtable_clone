@@ -19,9 +19,10 @@ interface CellProps {
   onClick: () => void, 
   onCellChange: (newValue: string) => void,
   multipleRecordsSelected: boolean,
-  onDelete: () => void
+  onDelete: () => void,
+  onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, onCellChange, multipleRecordsSelected, onDelete } : CellProps) => {
+const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -43,8 +44,15 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
     }
   }
   function onKeyDown(event: KeyboardEvent)  {
-    if (editing || !isSelected) return
     const key = event.key
+    if (isSelected && key === "Tab") {
+      event.preventDefault()
+      if (inputRef.current) inputRef.current.blur()
+      setEditing(false)
+      const direction = event.shiftKey ? -1 : 1
+      onTab(direction)
+    }
+    if (editing || !isSelected) return
     const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(key))
     if (key.length === 1 && ok) {
       setEditing(true)
@@ -168,6 +176,15 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
     }, 1000)
     setTimer(newTimer)
   }
+  function onTab(direction: -1 | 1) {
+    if (mainSelectedCell) {
+      const data = jsonData as Record<string, string>
+      const numFields = Object.keys(data).length
+      const colIndex = mainSelectedCell[1]
+      const canMove = direction === 1 ? colIndex < numFields - 1 : colIndex > 0
+      if (canMove) setMainSelectedCell([mainSelectedCell[0], colIndex + direction])
+    }
+  }
   return (
     <div className="flex flex-row items center h-8 border-box border-b-[1px] cursor-default"
       style={{
@@ -215,6 +232,7 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
           onCellChange={(newValue: string) => onRecordChange(field.id, newValue)}
           multipleRecordsSelected={multipleRecordsSelected}
           onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
+          onTab={onTab}
         />
       )}
     </div>
