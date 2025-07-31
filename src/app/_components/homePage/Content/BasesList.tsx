@@ -6,6 +6,7 @@ import { toastNoFunction } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 interface ColumnsLayoutProps {
   el1: React.ReactElement,
@@ -130,6 +131,7 @@ const BasesList = ({ bases } : { bases: BaseInfo[] }) => {
   const utils = api.useUtils();
   const { mutate: deleteBase, isPending } = api.base.delete.useMutation({
     onSuccess: async () => {
+      toast.success(`Deleted base!`)
       await utils.base.getAll.invalidate();
     },
   });

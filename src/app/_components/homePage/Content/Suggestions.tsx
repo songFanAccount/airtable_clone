@@ -6,6 +6,7 @@ import { toastNoWay } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 interface SuggestionInfo {
   Icon: React.ElementType;
@@ -62,6 +63,7 @@ const Suggestions = () => {
   const { mutate: createBase, status } = api.base.create.useMutation({
     onSuccess: async (createdBase) => {
       if (createdBase) {
+        toast.success(`Created base: "${createBase.name}"`)
         await utils.base.getAll.invalidate()
         const lastOpenedTableId = createdBase.lastOpenedTableId
         const lastOpenedTable = createdBase.tables.find((table) => table.id === lastOpenedTableId)

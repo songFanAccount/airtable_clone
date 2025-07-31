@@ -11,6 +11,7 @@ import { FieldType } from "@prisma/client";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { toastTODO } from "~/hooks/helpers";
+import { toast } from "react-toastify";
 
 const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean }) => {
   const [fieldHovered, setFieldHovered] = useState<boolean>(false)
@@ -21,6 +22,7 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
   const utils = api.useUtils()
   const { mutate: deleteField, status } = api.base.deleteField.useMutation({
     onSuccess: async () => {
+      toast.success(`Deleted field!"`)
       await utils.base.getAllFromBase.invalidate()
     }
   })
@@ -97,7 +99,8 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
   const [newFieldName, setNewFieldName] = useState<string>("")
   const utils = api.useUtils()
   const { mutate: createField, status } = api.base.addNewField.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (createdField) => {
+      toast.success(`Created field: "${createdField.name}"`)
       await utils.base.getAllFromBase.invalidate()
     }
   })
@@ -120,6 +123,11 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
             fieldNameNum++
           }
           fieldName = `${fieldName} ${fieldNameNum}`
+        }
+      } else {
+        if (fields.some(field => field.name === fieldName)) {
+          toast.error(`Field "${fieldName}" already exists!`)
+          return
         }
       }
       let columnNumber = 0
@@ -193,6 +201,9 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
                     className="p-2 h-8 padding-box w-full rounded-[6px] placeholder:text-gray-600"
                     style={{
                       outline: "2px solid #eaeaea"
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") onCreateField()
                     }}
                   />
                   <div className="flex flex-row justify-end items-center w-full h-8">

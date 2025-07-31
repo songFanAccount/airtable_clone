@@ -6,6 +6,7 @@ import { toastNoFunction } from "~/hooks/helpers";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: string }) => {
   const router = useRouter()
@@ -13,12 +14,14 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
   const { mutate: deleteBase, isPending } = api.base.delete.useMutation({
     onSuccess: async () => {
+      toast.success(`Deleted base!`)
       await utils.base.getAll.invalidate();
     },
   });
   const [newName, setNewName] = useState<string>(baseName ?? "")
-  const { mutate: renameBase, isPending: isRenaming } = api.base.rename.useMutation({
-    onSuccess: async () => {
+  const { mutate: renameBase } = api.base.rename.useMutation({
+    onSuccess: async (updatedBase) => {
+      toast.success(`Renamed base: "${updatedBase.name}"`)
       await utils.base.getAll.invalidate()
       await utils.base.getAllFromBase.invalidate()
     }

@@ -24,8 +24,8 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   const { mutate: addNewTable, status } = api.base.addNewTable.useMutation({
     onSuccess: async (createdTable) => {
       if (createdTable) {
+        toast.success(`Created table: "${createdTable.name}"`)
         await utils.base.getAllFromBase.invalidate()
-        console.log(createdTable)
         const newTableId = createdTable.id
         const defaultViewId = createdTable.lastOpenedViewId
         if (newTableId && defaultViewId) router.push(`/base/${baseId}/${newTableId}/${defaultViewId}`)
@@ -43,6 +43,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   const { mutate: deleteTable, status: deleteTableStatus } = api.base.deleteTable.useMutation({
     onSuccess: async (updatedBase) => {
       if (updatedBase) {
+        toast.success(`Deleted table!`)
         await utils.base.getAllFromBase.invalidate()
         const fallbackTableId = updatedBase.lastOpenedTableId
         const fallbackTable = tablesData?.find((tableData) => tableData?.id === fallbackTableId)
@@ -67,6 +68,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
   const { mutate: renameTable, status: renameStatus } = api.base.renameTable.useMutation({
     onSuccess: async (updatedTable) => {
       if (updatedTable) {
+        toast.success(`Renamed table: "${updatedTable.name}"`)
         await utils.base.getAllFromBase.invalidate()
       }
     }

@@ -23,8 +23,9 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
   const utils = api.useUtils()
   const { mutate: deleteView, status } = api.base.deleteView.useMutation({
     onSuccess: async (newCurrentView) => {
-      await utils.base.getAllFromBase.invalidate()
       if (newCurrentView) {
+        toast.success(`Deleted view!`)
+        await utils.base.getAllFromBase.invalidate()
         navToView(newCurrentView.id)
       }
     }
@@ -43,6 +44,7 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
   const { mutate: renameView, status: renameStatus } = api.base.renameView.useMutation({
     onSuccess: async (updatedView) => {
       if (updatedView) {
+        toast.success(`Renamed view: "${updatedView.name}"`)
         await utils.base.getAllFromBase.invalidate()
       }
     }
@@ -158,6 +160,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
   const { mutate: createView, status } = api.base.addNewView.useMutation({
     onSuccess: async (createdView) => {
       if (createdView) {
+        toast.success(`Created new view: "${createdView.name}"`)
         await utils.base.getAllFromBase.invalidate()
         const newViewId = createdView.id
         if (newViewId) navToView(newViewId)

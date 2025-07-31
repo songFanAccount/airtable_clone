@@ -8,6 +8,7 @@ import { toastNoFunction } from "~/hooks/helpers"
 import { useSession } from "next-auth/react"
 import { api } from "~/trpc/react"
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify"
 
 interface BaseBoxProps extends BaseInfo {
   deleteBase: (id: string) => void,
@@ -87,6 +88,7 @@ const BasesGrid = ({ bases } : { bases: BaseInfo[] }) => {
   const utils = api.useUtils();
   const { mutate: deleteBase, isPending } = api.base.delete.useMutation({
     onSuccess: async () => {
+      toast.success(`Deleted base!`)
       await utils.base.getAll.invalidate();
     },
   });

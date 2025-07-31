@@ -292,6 +292,7 @@ export const baseRouter = createTRPCRouter({
             data: { data: newData }
           })
         }
+        return newField
       })
     }),
   deleteField: protectedProcedure

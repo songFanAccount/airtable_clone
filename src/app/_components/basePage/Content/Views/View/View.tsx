@@ -4,6 +4,7 @@ import ColumnHeadings from "./ColumnHeadings"
 import Record from "./Record"
 import { api } from "~/trpc/react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 
 const View = ({ tableData, currentView } : { tableData: TableData, currentView: ViewData }) => {
   const fields: FieldsData = tableData?.fields
@@ -30,18 +31,21 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     setSelectedRecords(newSelectedRecords)
   }
   const utils = api.useUtils()
-  const { mutate: addRecord } = api.base.addNewRecord.useMutation({
+  const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async (createdRecord) => {
       if (createdRecord) {
+        toast.success(`Created new record!"`)
         await utils.base.getAllFromBase.invalidate()
       }
     }
   })
   function onAddRecord() {
+    if (addRecordStatus === "pending") return
     if (tableData && fields) addRecord({tableId: tableData.id, newPosition: Math.floor(largestPosition ?? 0) + 1, fieldIds: fields.map(field => field.id)})
   }
   const { mutate: deleteRecords, status } = api.base.deleteRecords.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (deleteInfo) => {
+      toast.success(`Deleted ${deleteInfo.count} record${deleteInfo.count > 1 ? "s" : ""}!`)
       await utils.base.getAllFromBase.invalidate()
     }
   })
@@ -111,11 +115,12 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             )
           }
           </div>
-          <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px]"
+          <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
             style={{
               borderColor: "#dfe2e4"
             }}
             onClick={onAddRecord}
+            disabled={addRecordStatus === "pending"}
           >
             <div className="w-[87px] h-full flex flex-row items-center pl-4">
               <AddIcon className="w-5 h-5 text-gray-500 ml-[6px]"/>
