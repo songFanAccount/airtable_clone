@@ -20,7 +20,6 @@ export type BaseData = {
   tables: Array<{
     views: ViewsData;
     fields: FieldsData;
-    records: RecordsData;
     lastOpenedView: ViewData | null;
     id: string;
     name: string;
@@ -44,7 +43,6 @@ export type BaseData = {
 export type TableData = ({
   views: ViewsData;
   fields: FieldsData;
-  records: RecordsData;
   lastOpenedView: ViewData | null;
 } & {
   baseId: string;
@@ -69,9 +67,10 @@ export type FieldData = {
 }
 export type FieldsData = FieldData[] | undefined
 export type RecordData = {
-  tableId: string;
-  data: JsonValue;
   id: string;
+  createdAt: Date;
+  data: JsonValue;
+  tableId: string;
   position: number;
 }
 export type RecordsData = RecordData[] | undefined
@@ -86,9 +85,16 @@ const BasePage = () => {
   const tableData = baseData?.tables.find((table) => table.id === tableId)
   const tableViews = tableData?.views
   const viewData = tableData?.views.find((view) => view.id === viewId)
+  const { data: records, isFetching } = api.base.getRecords.useQuery({ tableId: tableData?.id ?? "" }, {
+    enabled: !!tableData?.id
+  })
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/")
-  }, [status])
+    if (status === "unauthenticated") {
+      router.push("/")
+    } else if (status === "authenticated" && baseData && session.user.id !== baseData.userId) {
+      router.push("/")
+    }
+  }, [status, baseData, session, router])
   useEffect(() => {
     if (baseData && tableData) {
       document.title = `${baseData.name}: ${tableData.name} - Airtable`
@@ -99,7 +105,7 @@ const BasePage = () => {
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
         <Header baseId={baseData?.id} baseName={baseData?.name}/>
-        <Content baseData={baseData} currentTable={tableData} views={tableViews} currentView={viewData} />
+        <Content baseData={baseData} records={records} currentTable={tableData} views={tableViews} currentView={viewData} />
       </div>
     </div>
   )

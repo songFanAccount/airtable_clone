@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
 import { FieldType, Prisma, PrismaClient } from "@prisma/client"
+import { faker } from '@faker-js/faker';
 
 async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
   let newTable = await tx.table.create({
@@ -135,7 +136,6 @@ export const baseRouter = createTRPCRouter({
             include: {
               views: true,
               fields: true,
-              records: true,
               lastOpenedView: true,
             },
           },
@@ -266,6 +266,44 @@ export const baseRouter = createTRPCRouter({
           }
         })
       })
+    }),
+  getRecords: protectedProcedure
+    .input(z.object({tableId: z.string()}))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.record.findMany({
+        where: {tableId: input.tableId },
+        take: 50
+      })
+    }),
+  add100kRecords: protectedProcedure
+    .input(z.object({tableId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.$transaction(async (tx) => {
+        const fields = await tx.field.findMany({
+          where: {tableId: input.tableId}
+        })
+        const records = await tx.record.findMany({
+          where: { tableId: input.tableId },
+        })
+        console.log("Extracted records")
+        let largestPosition = 0
+        for (const record of records) largestPosition = Math.max(largestPosition, record.position)
+        const startPosition = Math.floor(largestPosition) + 1
+        console.log(`Starting position: ${startPosition}`)
+        return await tx.record.createMany({
+          data: Array.from({ length: 100000 }, (_, index) => {
+            const data: Record<string, string> = {}
+            fields.forEach(field => {
+              data[field.id] = field.type === FieldType.Text ? faker.string.alphanumeric(10) : faker.number.int({ min: -1000, max: 1000 }).toString()
+            })
+            return {
+              tableId: input.tableId,
+              position: startPosition + index,
+              data
+            }
+          })
+        })
+      }, {maxWait: 20000, timeout: 60000})
     }),
   addNewField: protectedProcedure
     .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string(), columnNumber: z.number()}))

@@ -6,10 +6,9 @@ import { api } from "~/trpc/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
-const View = ({ tableData, currentView } : { tableData: TableData, currentView: ViewData }) => {
+const View = ({ tableData, records, currentView } : { tableData: TableData, records: RecordsData, currentView: ViewData }) => {
   const fields: FieldsData = tableData?.fields
   if (fields) fields.sort((a, b) => a.columnNumber - b.columnNumber)
-  const records: RecordsData = tableData?.records
   if (records) records.sort((a, b) => a.position - b.position)
   const largestPosition = (records && records.length > 0 && records[records.length - 1]) ? records[records.length - 1]?.position : undefined
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set())
@@ -35,7 +34,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     onSuccess: async (createdRecord) => {
       if (createdRecord) {
         toast.success(`Created new record!"`)
-        await utils.base.getAllFromBase.invalidate()
+        await utils.base.getRecords.invalidate()
       }
     }
   })
@@ -43,10 +42,21 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     if (addRecordStatus === "pending") return
     if (tableData && fields) addRecord({tableId: tableData.id, newPosition: Math.floor(largestPosition ?? 0) + 1, fieldIds: fields.map(field => field.id)})
   }
-  const { mutate: deleteRecords, status } = api.base.deleteRecords.useMutation({
+  const { mutate: add100kRecords, status: add100kRecordsStatus } = api.base.add100kRecords.useMutation({
+    onSuccess: async (addEvent) => {
+      toast.success(`Added ${addEvent.count} records!`)
+      await utils.base.getRecords.invalidate()
+    }
+  })
+  function onAdd100kRecords() {
+    if (tableData) {
+      add100kRecords({ tableId: tableData.id })
+    }
+  }
+  const { mutate: deleteRecords, status: deleteStatus } = api.base.deleteRecords.useMutation({
     onSuccess: async (deleteInfo) => {
       toast.success(`Deleted ${deleteInfo.count} record${deleteInfo.count > 1 ? "s" : ""}!`)
-      await utils.base.getAllFromBase.invalidate()
+      await utils.base.getRecords.invalidate()
     }
   })
   const [mainSelectedCell, setMainSelectedCell] = useState<[number, number] | undefined>(undefined)
@@ -90,42 +100,68 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   }, [mainSelectedCell])
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
-      <div ref={ref} className="flex flex-col">
-        <ColumnHeadings tableId={tableData?.id} fields={tableData?.fields} selectAll={selectAll} onCheck={onSelectAll}/>
-        <div className="flex flex-col w-fit">
-          <div className="flex flex-col"
+      <div ref={ref} className="flex flex-col w-full h-fit pb-16 max-h-full">
+        <ColumnHeadings
+          tableId={tableData?.id}
+          fields={tableData?.fields}
+          selectAll={selectAll}
+          onCheck={onSelectAll}
+        />
+        <div className="flex h-fit flex-col w-full flex-1 relative overflow-y-auto">
+          <div
+            className="flex flex-col"
             style={{
-              width: fields ? `${fields.length * 180 + 87}px` : undefined
+              width: fields ? `${fields.length * 180 + 87}px` : undefined,
             }}
           >
-          {
-            records?.map((record, index) => 
-              <Record 
-                key={index} 
-                fields={fields} 
-                record={record} 
-                recordSelected={selectedRecords.has(index)} 
-                onCheck={() => checkRecord(index)} 
-                rowNum={index + 1} 
-                mainSelectedCell={mainSelectedCell} 
+            {records?.map((record, index) => (
+              <Record
+                key={index}
+                fields={fields}
+                record={record}
+                recordSelected={selectedRecords.has(index)}
+                onCheck={() => checkRecord(index)}
+                rowNum={index + 1}
+                mainSelectedCell={mainSelectedCell}
                 setMainSelectedCell={setMainSelectedCell}
                 multipleRecordsSelected={selectedRecords.size > 1}
-                onDeleteRecord={() => onDeleteSelectedRecords(index)}
+                onDeleteRecord={() => {
+                  if (deleteStatus === "pending") return;
+                  onDeleteSelectedRecords(index);
+                }}
               />
-            )
-          }
+            ))}
           </div>
-          <button className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
-            style={{
-              borderColor: "#dfe2e4"
-            }}
+        </div>
+        <div className="flex flex-col sticky bottom-0 bg-white border-[#dfe2e4]"
+          style={{
+            width: fields ? `${fields.length * 180 + 87}px` : undefined,
+            borderTopWidth: (records && records.length >= 40) ? "1px" : undefined
+          }}
+        >
+          <button
+            className="flex flex-row items-center w-full bg-white h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
+            style={{ borderColor: "#dfe2e4" }}
             onClick={onAddRecord}
             disabled={addRecordStatus === "pending"}
           >
             <div className="w-[87px] h-full flex flex-row items-center pl-4">
-              <AddIcon className="w-5 h-5 text-gray-500 ml-[6px]"/>
+              <AddIcon className="w-5 h-5 text-gray-500 ml-[6px]" />
             </div>
-            <div className="w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]"/>
+            <div className="w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]" />
+          </button>
+          <button
+            className="flex flex-row items-center w-full bg-white h-8 text-gray-500 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
+            style={{ borderColor: "#dfe2e4" }}
+            onClick={onAdd100kRecords}
+            disabled={add100kRecordsStatus === "pending"}
+          >
+            <div className="w-[87px] h-full flex flex-row items-center pl-4">
+              <AddIcon className="w-5 h-5 ml-[6px]" />
+            </div>
+            <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
+              <span>Add 100k rows</span>
+            </div>
           </button>
         </div>
       </div>

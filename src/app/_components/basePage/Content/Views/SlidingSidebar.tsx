@@ -26,6 +26,7 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
       if (newCurrentView) {
         toast.success(`Deleted view!`)
         await utils.base.getAllFromBase.invalidate()
+        await utils.base.getRecords.invalidate()
         navToView(newCurrentView.id)
       }
     }
@@ -162,6 +163,7 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
       if (createdView) {
         toast.success(`Created new view: "${createdView.name}"`)
         await utils.base.getAllFromBase.invalidate()
+        await utils.base.getRecords.invalidate()
         const newViewId = createdView.id
         if (newViewId) navToView(newViewId)
       }

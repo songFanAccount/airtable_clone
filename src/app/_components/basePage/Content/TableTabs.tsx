@@ -26,6 +26,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (createdTable) {
         toast.success(`Created table: "${createdTable.name}"`)
         await utils.base.getAllFromBase.invalidate()
+        await utils.base.getRecords.invalidate()
         const newTableId = createdTable.id
         const defaultViewId = createdTable.lastOpenedViewId
         if (newTableId && defaultViewId) router.push(`/base/${baseId}/${newTableId}/${defaultViewId}`)
@@ -45,6 +46,8 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (updatedBase) {
         toast.success(`Deleted table!`)
         await utils.base.getAllFromBase.invalidate()
+        await utils.base.getRecords.invalidate()
+      
         const fallbackTableId = updatedBase.lastOpenedTableId
         const fallbackTable = tablesData?.find((tableData) => tableData?.id === fallbackTableId)
         const fallbackViewId = fallbackTable?.lastOpenedViewId

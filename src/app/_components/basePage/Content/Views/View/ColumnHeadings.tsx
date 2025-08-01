@@ -24,6 +24,7 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
     onSuccess: async () => {
       toast.success(`Deleted field!"`)
       await utils.base.getAllFromBase.invalidate()
+      await utils.base.getRecords.invalidate()
     }
   })
   function onDeleteField() {
@@ -102,6 +103,7 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
     onSuccess: async (createdField) => {
       toast.success(`Created field: "${createdField.name}"`)
       await utils.base.getAllFromBase.invalidate()
+      await utils.base.getRecords.invalidate()
     }
   })
   useEffect(() => {
@@ -142,7 +144,7 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
     }
   }
   return (
-    <div className="flex flex-row items-center h-8 border-box border-b-[1px] bg-[#fbfcfe] font-[500]"
+    <div className="flex flex-row items-center h-8 border-box border-b-[1px] bg-[#fbfcfe] font-[500] flex-shrink-0"
       style={{
         borderColor: "#d1d1d1"
       }}

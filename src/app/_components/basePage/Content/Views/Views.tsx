@@ -1,12 +1,12 @@
 import { useState } from "react"
-import type { TableData, ViewData, ViewsData } from "../../BasePage"
+import type { RecordsData, TableData, ViewData, ViewsData } from "../../BasePage"
 import Header from "./Header"
 import SlidingSidebar from "./SlidingSidebar"
 import View from "./View/View"
 import * as Dialog from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
-const Views = ({ tableData, views, currentView, navToView } : { tableData: TableData, views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
+const Views = ({ tableData, records, views, currentView, navToView } : { tableData: TableData, records: RecordsData, views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
   if (!tableData) return <></>
   return (
@@ -26,7 +26,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
             </VisuallyHidden>
             <SlidingSidebar views={views} currentView={currentView} navToView={navToView}/>
           </Dialog.Content>
-          <View tableData={tableData} currentView={currentView}/>
+          <View tableData={tableData} records={records} currentView={currentView}/>
         </div>
       </div>
     </Dialog.Root>
