@@ -14,12 +14,11 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   const fields: FieldsData = tableData?.fields
   if (fields) fields.sort((a, b) => a.columnNumber - b.columnNumber)
   const [totalNumRows, setTotalNumRows] = useState<number>(tableData?.recordCount ?? 0)
-  const [lastAddedRecordRow, setLastAddedRecordRow] = useState<number>(tableData?.lastAddedRecordPos ?? 0)
   useEffect(() => {
     setTotalNumRows(tableData?.recordCount ?? 0)
-    setLastAddedRecordRow(tableData?.lastAddedRecordPos ?? 0)
   }, [tableData])
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set())
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set())
   const [selectAll, setSelectAll] = useState<boolean>(false)
   const rowVirtualizer = useVirtualizer({
     count: totalNumRows,
@@ -58,13 +57,18 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     } else setSelectedRecords(new Set())
     setSelectAll(newSelectAll)
   }
-  function checkRecord(i: number) {
+  function checkRecord(i: number, recordId: string) {
     const newSelectedRecords = new Set(selectedRecords)
     if (newSelectedRecords.has(i)) {
       newSelectedRecords.delete(i)
       setSelectAll(false)
     } else newSelectedRecords.add(i)
     setSelectedRecords(newSelectedRecords)
+    const newSelectedRecordIds = new Set(selectedRecordIds)
+    if (newSelectedRecordIds.has(recordId)) {
+      newSelectedRecordIds.delete(recordId)
+    } else newSelectedRecordIds.add(recordId)
+    setSelectedRecordIds(newSelectedRecordIds)
   }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async (createdRecord) => {
@@ -79,34 +83,37 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     if (addRecordStatus === "pending") return
     if (tableData && fields) addRecord({tableId: tableData.id, fieldIds: fields.map(field => field.id)})
   }
-  const { mutate: add100kRecords, status: add100kRecordsStatus } = api.base.add100kRecords.useMutation({
+  const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onSuccess: async (addEvent) => {
       toast.success(`Added ${addEvent.count} records!`)
       await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
   })
-  function onAdd100kRecords() {
+  const xs = [10, 100, 100000, 1000000]
+  const xsStr = ["10", "100", "100k", "1mil"]
+  function onAddXRecords(x: number) {
+    if (addXRecordsStatus === "pending") return
+    if (totalNumRows + x > 1500000) {
+      toast.error(`Row limit capped at 1.5mil, this action would exceed this cap!`)
+      return
+    }
     if (tableData) {
-      add100kRecords({ tableId: tableData.id })
+      addXRecords({ tableId: tableData.id, numRecords: x })
     }
   }
   const { mutate: deleteRecords, status: deleteStatus } = api.base.deleteRecords.useMutation({
     onSuccess: async (deleteInfo) => {
       toast.success(`Deleted ${deleteInfo.count} record${deleteInfo.count > 1 ? "s" : ""}!`)
+      await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
   })
   const [mainSelectedCell, setMainSelectedCell] = useState<[number, number] | undefined>(undefined)
-  function onDeleteSelectedRecords(callIndex: number) {
+  function onDeleteSelectedRecords(callId: string) {
     if (tableData) {
-      const deleteIndices = [...selectedRecords]
-      if (!deleteIndices.includes(callIndex)) deleteIndices.push(callIndex)
-        const deleteIds: string[] = []
-        deleteIndices.forEach(deleteInd => {
-        const record = records?.[deleteInd]
-        if (record) deleteIds.push(record.id)
-      })
+      const deleteIds = [...selectedRecordIds]
+      if (!deleteIds.includes(callId)) deleteIds.push(callId)
       deleteRecords({ tableId: tableData.id, recordIds: deleteIds })
       setSelectedRecords(new Set())
       setSelectAll(false)
@@ -137,7 +144,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
       }
     }
   }, [mainSelectedCell])
-  const bottomMsg = isFetching ? "Fetching rows..." : `Total number of rows: ${totalNumRows}. Last added row num: ${lastAddedRecordRow}. Currently showing rows: ${startIndex+1} - ${endIndex}. Num fetches: ${numFetches}`
+  const bottomMsg = isFetching ? "Fetching rows..." : `Total rows: ${totalNumRows}. Loaded rows: ${startIndex+1} - ${endIndex}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
       <div className="flex flex-col h-full w-full pb-16 relative" 
@@ -182,14 +189,14 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
                           fields={fields}
                           record={record}
                           recordSelected={selectedRecords.has(absoluteIndex)}
-                          onCheck={() => checkRecord(absoluteIndex)}
+                          onCheck={() => checkRecord(absoluteIndex, record.id)}
                           rowNum={absoluteIndex + 1}
                           mainSelectedCell={mainSelectedCell}
                           setMainSelectedCell={setMainSelectedCell}
                           multipleRecordsSelected={selectedRecords.size > 1}
                           onDeleteRecord={() => {
                             if (deleteStatus === "pending") return;
-                            onDeleteSelectedRecords(absoluteIndex);
+                            onDeleteSelectedRecords(record.id);
                           }}
                         />
                       :
@@ -217,7 +224,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             </div>
           </div>
         </div>
-        <div className="flex flex-col sticky bottom-0 bg-white border-[#dfe2e4]"
+        <div className="flex flex-col sticky bottom-0 border-[#dfe2e4]"
           style={{
             width: fields ? `${fields.length * 180 + 87}px` : undefined,
             borderTopWidth: (records && records.length >= 40) ? "1px" : undefined
@@ -232,24 +239,11 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             <div className="w-[87px] h-full flex flex-row items-center pl-4">
               <AddIcon className="w-5 h-5 ml-[6px]" />
             </div>
-              <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
-              {
-                (records && records.length >= 40) &&
-                <span>Add empty row</span>
-              }
-              </div>
-          </button>
-          <button
-            className="flex flex-row items-center w-full bg-white h-8 text-gray-500 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
-            style={{ borderColor: "#dfe2e4" }}
-            onClick={onAdd100kRecords}
-            disabled={add100kRecordsStatus === "pending"}
-          >
-            <div className="w-[87px] h-full flex flex-row items-center pl-4">
-              <AddIcon className="w-5 h-5 ml-[6px]" />
-            </div>
             <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
-              <span>Add 100k rows</span>
+            {
+              (records && records.length >= 40) &&
+              <span className="mx-[6px]">Add one empty row</span>
+            }
             </div>
             <div className="ml-3 flex flex-row items-center gap-2">
               {
@@ -263,6 +257,26 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
               </span>
             </div>
           </button>
+          {/* <div className="bg-[#f6f8fc]"> */}
+            <div
+              className="flex flex-row items-center w-full bg-white h-8 text-gray-500 border-box border-b-[1px]"
+              style={{ borderColor: "#dfe2e4" }}
+              >
+              <div className="w-[87px] h-full flex flex-row items-center pl-4">
+                <AddIcon className="w-5 h-5 ml-[6px]" />
+              </div>
+              {
+                xs.map((x, index) => (
+                  <button key={index} className="flex flex-row items-center flex-1 border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
+                    disabled={addXRecordsStatus === "pending"}
+                    onClick={() => onAddXRecords(x)}
+                  >
+                    <span className="mx-[6px]">Add {xsStr[index]} rows</span>
+                  </button>
+                ))
+              }
+            </div>
+          {/* </div> */}
         </div>
       </div>
     </div>

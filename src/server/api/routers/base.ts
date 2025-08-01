@@ -287,11 +287,11 @@ export const baseRouter = createTRPCRouter({
         take: input.take
       })
     }),
-  add100kRecords: protectedProcedure
-    .input(z.object({tableId: z.string()}))
+  addXRecords: protectedProcedure
+    .input(z.object({tableId: z.string(), numRecords: z.number()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
-        const numRecords = 100
+        const numRecords = input.numRecords
         const fields = await tx.field.findMany({
           where: {tableId: input.tableId}
         })
@@ -300,6 +300,27 @@ export const baseRouter = createTRPCRouter({
           data: Array.from({ length: numRecords }, (_, index) => {
             const data: Record<string, string> = {}
             fields.forEach(field => {
+              const fieldName = field.name.trim().toLowerCase()
+              if (field.type === FieldType.Text) {
+                const fakerField =
+                fieldName === "name" ? faker.person.fullName() :
+                fieldName === "address" ? faker.location.streetAddress() :
+                fieldName === "note" ? faker.lorem.sentence() :
+                undefined
+                if (fakerField !== undefined) {
+                  data[field.id] = fakerField
+                  return
+                }
+              } else {
+                const fakerField =
+                fieldName === "age" ? faker.number.int({ min: 18, max: 90 }) :
+                fieldName === "rank" ? faker.number.int({ min: 1, max: 1000 }) :
+                undefined
+                if (fakerField !== undefined) {
+                  data[field.id] = fakerField.toString()
+                  return
+                }
+              }
               data[field.id] = field.type === FieldType.Text ? faker.string.alphanumeric(10) : faker.number.int({ min: -1000, max: 1000 }).toString()
             })
             return {
