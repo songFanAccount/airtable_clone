@@ -244,7 +244,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
               <span className="mx-[6px]">Add one empty row</span>
             </div>
-            <div className="ml-3 flex flex-row items-center gap-2">
+            <div className="ml-[6px] flex flex-row items-center gap-2">
               {
                 isFetching &&
                 <div className="flex flex-row items-center h-full flex-shrink-0">
@@ -265,9 +265,13 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             </div>
             {
               xs.map((x, index) => (
-                <button key={index} className="flex flex-row items-center flex-1 border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
+                <button key={index} className="flex flex-row items-center border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
                   disabled={addXRecordsStatus === "pending"}
                   onClick={() => onAddXRecords(x)}
+                  style={{
+                    flex: index === 0 ? undefined : 1,
+                    width: index === 0 ? "180px" : undefined
+                  }}
                 >
                   <span className="mx-[6px]">Add {xsStr[index]} rows</span>
                 </button>

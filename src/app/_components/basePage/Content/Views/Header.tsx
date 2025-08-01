@@ -15,7 +15,6 @@ const ViewSearch = () => {
   )
 }
 const Header = ({ currentView } : { currentView: ViewData }) => {
-  
   return (
     <div className="h-[48px] border-box border-b-[1px] flex flex-row justify-between items-center gap-2 flex-shrink-0"
       style={{

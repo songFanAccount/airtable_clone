@@ -338,7 +338,7 @@ export const baseRouter = createTRPCRouter({
           }
         })
         return createdRecords
-      }, {maxWait: 20000, timeout: 60000})
+      }, {maxWait: 200000, timeout: 600000})
     }),
   addNewField: protectedProcedure
     .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string(), columnNumber: z.number()}))
