@@ -91,7 +91,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     }
   })
   const xs = [10, 100, 100000, 1000000]
-  const xsStr = ["10", "100", "100k", "1mil"]
+  const xsStr = ["10", "100", "100k", "1 million"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
     if (totalNumRows + x > 1500000) {
@@ -121,10 +121,11 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
     }
   }
   const ref = useRef<HTMLDivElement>(null);
+  const recordRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const popover = document.querySelector('[data-popover="true"]');
-      if (ref.current && !ref.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
+      if (recordRef.current && !recordRef.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
         setSelectedRecords(new Set())
         setSelectAll(false)
@@ -147,7 +148,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   const bottomMsg = isFetching ? "Fetching rows..." : `Total rows: ${totalNumRows}. Loaded rows: ${startIndex+1} - ${endIndex}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
-      <div className="flex flex-col h-full w-full pb-16 relative" 
+      <div className="flex flex-col h-full w-full pb-19 relative" 
         
       >
         <ColumnHeadings
@@ -163,6 +164,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
             }}
           >
             <div
+              ref={recordRef}
               className="flex flex-col absolute top-0 h-fit"
               style={{
                 width: fields ? `${fields.length * 180 + 87}px` : undefined,
@@ -240,10 +242,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
               <AddIcon className="w-5 h-5 ml-[6px]" />
             </div>
             <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
-            {
-              (records && records.length >= 40) &&
               <span className="mx-[6px]">Add one empty row</span>
-            }
             </div>
             <div className="ml-3 flex flex-row items-center gap-2">
               {
@@ -257,26 +256,24 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
               </span>
             </div>
           </button>
-          {/* <div className="bg-[#f6f8fc]"> */}
-            <div
-              className="flex flex-row items-center w-full bg-white h-8 text-gray-500 border-box border-b-[1px]"
-              style={{ borderColor: "#dfe2e4" }}
-              >
-              <div className="w-[87px] h-full flex flex-row items-center pl-4">
-                <AddIcon className="w-5 h-5 ml-[6px]" />
-              </div>
-              {
-                xs.map((x, index) => (
-                  <button key={index} className="flex flex-row items-center flex-1 border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
-                    disabled={addXRecordsStatus === "pending"}
-                    onClick={() => onAddXRecords(x)}
-                  >
-                    <span className="mx-[6px]">Add {xsStr[index]} rows</span>
-                  </button>
-                ))
-              }
+          <div
+            className="flex flex-row items-center w-full bg-white h-8 text-gray-500 border-box border-b-[1px]"
+            style={{ borderColor: "#dfe2e4" }}
+            >
+            <div className="w-[87px] h-full flex flex-row items-center pl-4">
+              <AddIcon className="w-5 h-5 ml-[6px]" />
             </div>
-          {/* </div> */}
+            {
+              xs.map((x, index) => (
+                <button key={index} className="flex flex-row items-center flex-1 border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
+                  disabled={addXRecordsStatus === "pending"}
+                  onClick={() => onAddXRecords(x)}
+                >
+                  <span className="mx-[6px]">Add {xsStr[index]} rows</span>
+                </button>
+              ))
+            }
+          </div>
         </div>
       </div>
     </div>
