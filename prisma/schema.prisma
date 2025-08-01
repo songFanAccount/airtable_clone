@@ -78,17 +78,19 @@ model Base {
 }
 
 model Table {
-  id                String   @id @default(cuid())
-  name              String
-  baseId            String
-  base              Base     @relation("BaseTables", fields: [baseId], references: [id], onDelete: Cascade)
-  openedByBase      Base?    @relation("BaseLastOpenedTable")
-  fields            Field[]
-  records           Record[]
-  views             View[]   @relation("TableViews")
+  id String   @id @default(cuid())
+  name String
+  baseId String
+  base Base  @relation("BaseTables", fields: [baseId], references: [id], onDelete: Cascade)
+  openedByBase Base? @relation("BaseLastOpenedTable")
+  fields Field[]
+  records Record[]
+  recordCount Int @default(0)
+  lastAddedRecordPos Float @default(1)
+  views View[]   @relation("TableViews")
   lastOpenedViewId  String?  @unique
   lastOpenedView    View?    @relation("TableLastOpenedView", fields: [lastOpenedViewId], references: [id])
-  createdAt         DateTime @default(now())
+  createdAt DateTime @default(now())
   @@unique([baseId, name])
 }
 

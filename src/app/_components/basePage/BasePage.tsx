@@ -26,6 +26,8 @@ export type BaseData = {
     baseId: string;
     createdAt: Date;
     lastOpenedViewId: string | null;
+    recordCount: number;
+    lastAddedRecordPos: number;
   }>;
   lastOpenedTable: {
     id: string;
@@ -50,6 +52,8 @@ export type TableData = ({
   id: string;
   createdAt: Date;
   lastOpenedViewId: string | null;
+  recordCount: number;
+  lastAddedRecordPos: number;
 }) | undefined
 export type TablesData = TableData[] | undefined
 export type ViewData = {
@@ -85,9 +89,6 @@ const BasePage = () => {
   const tableData = baseData?.tables.find((table) => table.id === tableId)
   const tableViews = tableData?.views
   const viewData = tableData?.views.find((view) => view.id === viewId)
-  const { data: records, isFetching } = api.base.getRecords.useQuery({ tableId: tableData?.id ?? "" }, {
-    enabled: !!tableData?.id
-  })
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/")
@@ -105,7 +106,7 @@ const BasePage = () => {
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
         <Header baseId={baseData?.id} baseName={baseData?.name}/>
-        <Content baseData={baseData} records={records} currentTable={tableData} views={tableViews} currentView={viewData} />
+        <Content baseData={baseData} currentTable={tableData} views={tableViews} currentView={viewData} />
       </div>
     </div>
   )

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Table" ADD COLUMN     "lastAddedRecordPos" DOUBLE PRECISION NOT NULL DEFAULT 1;
