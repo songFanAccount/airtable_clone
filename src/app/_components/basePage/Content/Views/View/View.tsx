@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
 
-const View = ({ tableData, currentView } : { tableData: TableData, currentView: ViewData }) => {
+const View = ({ tableData } : { tableData: TableData }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   if (fields) fields.sort((a, b) => a.columnNumber - b.columnNumber)
@@ -148,9 +148,7 @@ const View = ({ tableData, currentView } : { tableData: TableData, currentView: 
   const bottomMsg = isFetching ? "Fetching rows..." : `Total rows: ${totalNumRows}. Loaded rows: ${startIndex+1} - ${endIndex}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
-      <div className="flex flex-col h-full w-full pb-19 relative" 
-        
-      >
+      <div className="flex flex-col h-full w-full pb-19 relative">
         <ColumnHeadings
           tableId={tableData?.id}
           fields={tableData?.fields}

@@ -252,6 +252,25 @@ export const baseRouter = createTRPCRouter({
         data: {name: input.newName}
       })
     }),
+  getView: protectedProcedure
+    .input(z.object({viewId: z.string()}))
+    .query(async ({ctx, input}) => {
+      return await ctx.db.view.findUnique({
+        where: {id : input.viewId},
+        include: {
+          filters: true,
+          sorts: true
+        }
+      })
+    }),
+  updateViewHiddenFields: protectedProcedure
+    .input(z.object({ viewId: z.string(), fieldIds: z.array(z.string()) }))
+    .mutation(async ({ctx, input}) => {
+      return await ctx.db.view.update({
+        where: {id: input.viewId},
+        data: { hiddenFieldIds: input.fieldIds }
+      })
+    }),
   addNewRecord: protectedProcedure
     .input(z.object({tableId: z.string(), fieldIds: z.array(z.string())}))
     .mutation(async ({ctx, input}) => {

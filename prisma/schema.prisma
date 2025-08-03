@@ -116,9 +116,52 @@ model Record {
 }
 
 model View {
-  id              String   @id @default(cuid())
-  name            String
-  tableId         String
-  table           Table    @relation("TableViews", fields: [tableId], references: [id], onDelete: Cascade)
-  openedByTable   Table?   @relation("TableLastOpenedView")
+    id String   @id @default(cuid())
+    name String
+    tableId String
+    hiddenFieldIds String[]
+    filters Filter[] @relation("ViewFilters")
+    sorts Sort[] @relation("ViewSorts")
+    table Table    @relation("TableViews", fields: [tableId], references: [id], onDelete: Cascade)
+    openedByTable Table?   @relation("TableLastOpenedView")
+}
+
+enum FilterJoinType {
+    AND
+    OR
+}
+
+enum FilterOperator {
+    GREATERTHAN
+    SMALLERTHAN
+
+    NOTEMPTY
+    EMPTY
+    CONTAINS
+    NOTCONTAINS
+    EQUALTO
+}
+
+model Filter {
+    id String @id @default(cuid())
+    joinType FilterJoinType
+    viewId String
+    view View @relation("ViewFilters", fields: [viewId], references: [id], onDelete: Cascade)
+    fieldId String
+    operator FilterOperator
+    compareVal String
+}
+
+enum SortOperator {
+    INCREASING
+    DECREASING
+}
+
+model Sort {
+    id String @id @default(cuid())
+    viewId String
+    view View @relation("ViewSorts", fields: [viewId], references: [id], onDelete: Cascade)
+    fieldId String
+    operator SortOperator
+    createdAt DateTime @default(now())
 }

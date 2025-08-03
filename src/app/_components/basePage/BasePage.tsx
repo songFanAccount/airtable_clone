@@ -62,6 +62,12 @@ export type ViewData = {
   id: string;
 } | undefined
 export type ViewsData = ViewData[] | undefined
+export type ViewDetailedData = {
+  id: string,
+  tableId: string,
+  name: string,
+  hiddenFieldIds: string[]
+} | undefined | null
 export type FieldData = {
   tableId: string;
   type: FieldType;

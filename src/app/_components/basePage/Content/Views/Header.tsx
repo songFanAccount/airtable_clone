@@ -1,4 +1,4 @@
-import type { ViewData } from "../../BasePage"
+import type { FieldsData, ViewDetailedData } from "../../BasePage"
 import { IoMdMenu as MenuIcon } from "react-icons/io";
 import { MdOutlineTableChart as TableIcon } from "react-icons/md";
 import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
@@ -14,7 +14,7 @@ const ViewSearch = () => {
     </button>
   )
 }
-const Header = ({ currentView } : { currentView: ViewData }) => {
+const Header = ({ fields, viewData } : { fields: FieldsData, viewData: ViewDetailedData }) => {
   return (
     <div className="h-[48px] border-box border-b-[1px] flex flex-row justify-between items-center gap-2 flex-shrink-0"
       style={{
@@ -31,13 +31,13 @@ const Header = ({ currentView } : { currentView: ViewData }) => {
           onClick={() => toast("To rename/delete view, hover the view from the side bar and open options.")}
         >
           <TableIcon className="w-4 h-4 text-[#3380e5]"/>
-          <span className="text-[13px] font-[500]">{currentView?.name}</span>
+          <span className="text-[13px] font-[500]">{viewData?.name}</span>
           <DropdownIcon className="w-4 h-4 text-gray-700"/>
         </button>
       </div>
       <div className="flex flex-1 flex-row items-center justify-end pr-2">
         <div className="flex flex-row items-center gap-4">
-          <ViewConfigs/>
+          {viewData && <ViewConfigs view={viewData} fields={fields}/>}
           <ViewSearch/>
         </div>
       </div>
