@@ -1,4 +1,4 @@
-import { type RecordsData, type FieldsData, type TableData, type ViewData } from "../../../BasePage"
+import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
 import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
@@ -9,10 +9,10 @@ import { toast } from "react-toastify";
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
 
-const View = ({ tableData } : { tableData: TableData }) => {
+const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedData }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
-  if (fields) fields.sort((a, b) => a.columnNumber - b.columnNumber)
+  const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
   const [totalNumRows, setTotalNumRows] = useState<number>(tableData?.recordCount ?? 0)
   useEffect(() => {
     setTotalNumRows(tableData?.recordCount ?? 0)
@@ -30,10 +30,11 @@ const View = ({ tableData } : { tableData: TableData }) => {
   const startIndex = virtualRows[0]?.index ?? 0
   const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
   const [numFetches, setNumFetches] = useState<number>(0)
-  const { data: records, isFetching } = api.base.getRecords.useQuery({ tableId: tableData?.id ?? "", skip: startIndex, take: endIndex - startIndex + 1 }, {
-    enabled: !!tableData?.id,
+  const { data: recordsObj, isFetching } = api.base.getRecords.useQuery({ viewId: view?.id ?? "", skip: startIndex, take: endIndex - startIndex + 1 }, {
+    enabled: !!tableData?.id && !!view?.id,
     placeholderData: keepPreviousData
   })
+  const records = recordsObj?.records
   interface Cache {
     data: RecordsData,
     startIndex: number,
@@ -71,17 +72,15 @@ const View = ({ tableData } : { tableData: TableData }) => {
     setSelectedRecordIds(newSelectedRecordIds)
   }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
-    onSuccess: async (createdRecord) => {
-      if (createdRecord) {
-        toast.success(`Created new record!"`)
-        await utils.base.getAllFromBase.invalidate()
-        await utils.base.getRecords.invalidate()
-      }
+    onSuccess: async () => {
+      toast.success(`Created new record!"`)
+      await utils.base.getAllFromBase.invalidate()
+      await utils.base.getRecords.invalidate()
     }
   })
   function onAddRecord() {
     if (addRecordStatus === "pending") return
-    if (tableData && fields) addRecord({tableId: tableData.id, fieldIds: fields.map(field => field.id)})
+    if (tableData && fields) addRecord({tableId: tableData.id})
   }
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onSuccess: async (addEvent) => {
@@ -121,11 +120,12 @@ const View = ({ tableData } : { tableData: TableData }) => {
     }
   }
   const ref = useRef<HTMLDivElement>(null);
+  const headingsRef = useRef<HTMLDivElement>(null)
   const recordRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const popover = document.querySelector('[data-popover="true"]');
-      if (recordRef.current && !recordRef.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
+      if (recordRef.current && headingsRef.current && !recordRef.current.contains(event.target as Node) && !headingsRef.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
         setSelectedRecords(new Set())
         setSelectAll(false)
@@ -149,12 +149,14 @@ const View = ({ tableData } : { tableData: TableData }) => {
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
       <div className="flex flex-col h-full w-full pb-19 relative">
-        <ColumnHeadings
-          tableId={tableData?.id}
-          fields={tableData?.fields}
-          selectAll={selectAll}
-          onCheck={onSelectAll}
-        />
+        <div ref={headingsRef}>
+          <ColumnHeadings
+            tableId={tableData?.id}
+            fields={includedFields}
+            selectAll={selectAll}
+            onCheck={onSelectAll}
+          />
+        </div>
         <div ref={ref} className="max-h-full overflow-y-auto relative">
           <div className="flex flex-col w-full relative"
             style={{
@@ -165,7 +167,7 @@ const View = ({ tableData } : { tableData: TableData }) => {
               ref={recordRef}
               className="flex flex-col absolute top-0 h-fit"
               style={{
-                width: fields ? `${fields.length * 180 + 87}px` : undefined,
+                width: includedFields ? `${includedFields.length * 180 + 87}px` : undefined,
               }}
             >
               {virtualRows.map((virtualRow) => {
@@ -183,10 +185,10 @@ const View = ({ tableData } : { tableData: TableData }) => {
                     }}
                   >
                     {
-                      record
+                      record && fields
                       ?
                         <Record
-                          fields={fields}
+                          fields={includedFields}
                           record={record}
                           recordSelected={selectedRecords.has(absoluteIndex)}
                           onCheck={() => checkRecord(absoluteIndex, record.id)}

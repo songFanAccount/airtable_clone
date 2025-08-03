@@ -39,7 +39,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
             </VisuallyHidden>
             <SlidingSidebar views={views} currentView={currentView} navToView={navToView}/>
           </Dialog.Content>
-          <View tableData={tableData}/>
+          {viewData && <View tableData={tableData} view={viewData}/>}
         </div>
       </div>
     </Dialog.Root>

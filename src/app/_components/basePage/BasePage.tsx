@@ -7,7 +7,6 @@ import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
 import Content from "./Content/Content"
 import type { FieldType } from "@prisma/client"
-import type { JsonValue } from "@prisma/client/runtime/library"
 
 export type BaseData = {
   user: {
@@ -79,11 +78,17 @@ export type FieldsData = FieldData[] | undefined
 export type RecordData = {
   id: string;
   createdAt: Date;
-  data: JsonValue;
   tableId: string;
-  position: number;
+  rowNum: number;
+  cells: CellData[]
 }
 export type RecordsData = RecordData[] | undefined
+export type CellData = {
+  id: string;
+  value: string;
+  fieldId: string;
+  recordId: string;
+}
 
 const BasePage = () => {
   const { baseId, tableId, viewId } = useParams()

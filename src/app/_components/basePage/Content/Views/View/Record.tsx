@@ -1,5 +1,5 @@
-import { FieldType, Prisma } from "@prisma/client"
-import type { FieldData, FieldsData, RecordData } from "../../../BasePage"
+import { FieldType } from "@prisma/client"
+import type { CellData, FieldData, FieldsData, RecordData } from "../../../BasePage"
 import * as Checkbox from "@radix-ui/react-checkbox";
 import * as Popover from "@radix-ui/react-popover";
 import { CheckIcon } from "@radix-ui/react-icons";
@@ -11,18 +11,19 @@ function isNumber(str: string): boolean {
   return /^[0-9]+(\.[0-9]+)?$/.test(str);
 }
 interface CellProps {
-  field: FieldData, 
-  value: string | undefined, 
+  cell?: CellData, 
+  field: FieldData,
   mainSelectedCell?: [number,number], 
   isFirst: boolean, 
   isSelected: boolean, 
   onClick: () => void, 
-  onCellChange: (newValue: string) => void,
+  onCellChange: (cellId: string, newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+  const value = cell?.value
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -36,11 +37,12 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
     }
   }, [editing])
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!cell) return
     const newValue = e.target.value
     const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(newValue))
     if (ok) {
       setNewValue(newValue)
-      onCellChange(newValue)
+      onCellChange(cell.id, newValue)
     }
   }
   function onKeyDown(event: KeyboardEvent)  {
@@ -103,7 +105,7 @@ const Cell = ({ field, value, mainSelectedCell, isFirst, isSelected, onClick, on
             style={{
               cursor: editing ? "text" : "default",
               color: "rgb(29, 31, 37)",
-              textAlign: field.type === FieldType.Text ? "start" : "end"
+              textAlign: field && field.type === FieldType.Text ? "start" : "end"
             }}
           />
           {
@@ -156,30 +158,26 @@ interface RecordProps {
   onDeleteRecord: () => void
 }
 const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
-  const { id, data } = record
-  const [recordData, setRecordData] = useState<Prisma.JsonValue>(data)
+  const { cells } = record
+  const [recordData, setRecordData] = useState<CellData[]>(cells)
   useEffect(() => {
-    setRecordData(data)
-  }, [data])
-  const jsonData = recordData as Prisma.JsonObject
+    setRecordData(cells)
+  }, [cells])
   const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const active = isHovered || isSelectedRow || recordSelected
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
-  const { mutate: updateRecord } = api.base.updateRecord.useMutation()
-  function onRecordChange(fieldId: string, newValue: string) {
+  const { mutate: updateCell } = api.base.updateCell.useMutation()
+  function onRecordChange(cellId: string, newValue: string) {
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
-      const newRecordData: Record<string, string> = jsonData as Record<string, string>
-      newRecordData[fieldId] = newValue
-      updateRecord({recordId: id, newRecordData})
+      updateCell({cellId, newValue})
     }, 1000)
     setTimer(newTimer)
   }
   function onTab(direction: -1 | 1) {
     if (mainSelectedCell) {
-      const data = jsonData as Record<string, string>
-      const numFields = Object.keys(data).length
+      const numFields = cells.length
       const colIndex = mainSelectedCell[1]
       const canMove = direction === 1 ? colIndex < numFields - 1 : colIndex > 0
       if (canMove) setMainSelectedCell([mainSelectedCell[0], colIndex + direction])
@@ -223,13 +221,14 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
       </div>
       {fields?.map((field, index) => 
         <Cell 
-          key={index} field={field} 
-          value={jsonData?.[field.id] as (string | undefined)} 
+          key={index}
+          cell={recordData?.find(cell => cell.fieldId === field.id)}
+          field={field}
           mainSelectedCell={mainSelectedCell} 
           isFirst={index === 0}
           isSelected={isSelectedRow && mainSelectedCell[1] === index} 
           onClick={() => setMainSelectedCell([rowNum-1, index])}
-          onCellChange={(newValue: string) => onRecordChange(field.id, newValue)}
+          onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue)}
           multipleRecordsSelected={multipleRecordsSelected}
           onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
           onTab={onTab}

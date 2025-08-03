@@ -3,6 +3,23 @@ import { createTRPCRouter, protectedProcedure } from "../trpc"
 import { FieldType, Prisma, PrismaClient } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 
+function getMockData(fieldName: string, type: FieldType): string {
+  fieldName = fieldName.trim().toLowerCase()
+  if (type === FieldType.Text) {
+    const fakerField =
+    fieldName === "name" ? faker.person.fullName() :
+    fieldName === "address" ? faker.location.streetAddress() :
+    fieldName === "note" ? faker.lorem.sentence() :
+    undefined
+    return fakerField ?? ""
+  } else {
+    const fakerField =
+    fieldName === "age" ? faker.number.int({ min: 18, max: 90 }) :
+    fieldName === "rank" ? faker.number.int({ min: 1, max: 1000 }) :
+    undefined
+    return fakerField?.toString() ?? ""
+  }
+}
 async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
   let newTable = await tx.table.create({
     data: {
@@ -23,7 +40,8 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
   */
   interface FieldProps {
     name: string,
-    type: FieldType
+    type: FieldType,
+    id?: string
   }
   const defaultFields: FieldProps[] = [
     {name: "Name", type: FieldType.Text},
@@ -32,7 +50,6 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
     {name: "Rank", type: FieldType.Number},
     {name: "Note", type: FieldType.Text},
   ]
-  const fieldIds: string[] = []
   for (const [index, fieldProps] of defaultFields.entries()) {
     const { name, type } = fieldProps;
     const newField = await tx.field.create({
@@ -43,28 +60,28 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
         columnNumber: index + 1
       }
     });
-    fieldIds.push(newField.id)
+    if (defaultFields[index]) defaultFields[index].id = newField.id
   }
-  /*
-  Create default records
-  */
-  const defaultRecord: Record<string, number | string> = {}
-  fieldIds.forEach((field) => {
-    defaultRecord[field] = ""
-  })
   for (let i = 1; i <= 3; i++) {
-    await tx.record.create({
-      data: {
-        tableId: newTable.id,
-        position: i,
-        data: defaultRecord
-      }
-    })
+    const record = await tx.record.create({data: {
+      rowNum: i,
+      tableId: newTable.id,
+    }})
+    for (const fieldProps of defaultFields) {
+      const fieldId = fieldProps.id
+      if (!fieldId) continue
+      await tx.cell.create({data: {
+        recordId: record.id,
+        fieldId,
+        value: getMockData(fieldProps.name, fieldProps.type)
+      }})
+    }
   }
   const defaultView = await tx.view.create({
     data: {
       name: "Grid view",
-      tableId: newTable.id
+      tableId: newTable.id,
+      hiddenFieldIds: []
     }
   })
   newTable = await tx.table.update({
@@ -137,7 +154,11 @@ export const baseRouter = createTRPCRouter({
           tables: {
             include: {
               views: true,
-              fields: true,
+              fields: {
+                orderBy: {
+                  columnNumber: 'asc'
+                }
+              },
               lastOpenedView: true,
             },
           },
@@ -272,38 +293,55 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   addNewRecord: protectedProcedure
-    .input(z.object({tableId: z.string(), fieldIds: z.array(z.string())}))
+    .input(z.object({tableId: z.string()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
-        const newRecordData: Record<string, string | number> = {}
-        for (const fieldId of input.fieldIds) {
-          newRecordData[fieldId] = ""
-        }
         const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}})
-        const newRecord = await tx.record.create({
-          data: {
-            tableId: input.tableId,
-            data: newRecordData as Prisma.JsonObject,
-            position: table.lastAddedRecordPos + 1
-          }
-        })
+        const fields = await tx.field.findMany({where: {tableId: table.id}})
+        const rowNum = table.lastAddedRecordPos + 1
+        const newRecord = await tx.record.create({data: {
+          rowNum,
+          tableId: table.id,
+        }})
+        for (const field of fields) {
+          await tx.cell.create({data: {
+            recordId: newRecord.id,
+            fieldId: field.id,
+            value: ""
+          }})
+        }
         await tx.table.update({
           where: {id: input.tableId},
           data: {
             recordCount: { increment: 1 },
-            lastAddedRecordPos: { increment: 1 },
+            lastAddedRecordPos: rowNum,
           }
         })
-        return newRecord
       })
     }),
   getRecords: protectedProcedure
-    .input(z.object({tableId: z.string(), skip: z.number(), take: z.number()}))
+    .input(z.object({viewId: z.string(), skip: z.number(), take: z.number()}))
     .query(async ({ ctx, input }) => {
-      return ctx.db.record.findMany({
-        where: {tableId: input.tableId },
-        skip: input.skip,
-        take: input.take
+      return await ctx.db.$transaction(async (tx) => {
+        const view = await tx.view.findUniqueOrThrow({where: {id: input.viewId}})
+        const totalRecordsInView = await tx.record.count({
+          where: {tableId: view.tableId},
+        })
+        const records = await tx.record.findMany({
+          where: {tableId: view.tableId},
+          include: {
+            cells: {
+              where: {fieldId: {notIn: view.hiddenFieldIds}},
+            }
+          },
+          orderBy: {rowNum: 'asc'},
+          skip: input.skip,
+          take: input.take
+        })
+        return {
+          totalRecordsInView,
+          records,
+        }
       })
     }),
   addXRecords: protectedProcedure
@@ -315,40 +353,31 @@ export const baseRouter = createTRPCRouter({
           where: {tableId: input.tableId}
         })
         const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}})
+        const firstNewRowNum = table.lastAddedRecordPos + 1
         const createdRecords = await tx.record.createMany({
           data: Array.from({ length: numRecords }, (_, index) => {
-            const data: Record<string, string> = {}
-            fields.forEach(field => {
-              const fieldName = field.name.trim().toLowerCase()
-              if (field.type === FieldType.Text) {
-                const fakerField =
-                fieldName === "name" ? faker.person.fullName() :
-                fieldName === "address" ? faker.location.streetAddress() :
-                fieldName === "note" ? faker.lorem.sentence() :
-                undefined
-                if (fakerField !== undefined) {
-                  data[field.id] = fakerField
-                  return
-                }
-              } else {
-                const fakerField =
-                fieldName === "age" ? faker.number.int({ min: 18, max: 90 }) :
-                fieldName === "rank" ? faker.number.int({ min: 1, max: 1000 }) :
-                undefined
-                if (fakerField !== undefined) {
-                  data[field.id] = fakerField.toString()
-                  return
-                }
-              }
-              data[field.id] = field.type === FieldType.Text ? faker.string.alphanumeric(10) : faker.number.int({ min: -1000, max: 1000 }).toString()
-            })
             return {
+              rowNum: firstNewRowNum + index,
               tableId: input.tableId,
-              position: table.lastAddedRecordPos+1 + index,
-              data
             }
           })
         })
+        const insertedRecords = await tx.record.findMany({
+          where: {tableId: table.id},
+          orderBy: {rowNum: 'desc'},
+          take: createdRecords.count
+        })
+        const cellsToInsert: Prisma.CellCreateManyInput[] = []
+        insertedRecords.forEach(record => {
+          fields.forEach(field => {
+            cellsToInsert.push({
+              recordId: record.id,
+              fieldId: field.id,
+              value: getMockData(field.name, field.type)
+            })
+          })
+        })
+        await tx.cell.createMany({data: cellsToInsert})
         await tx.table.update({
           where: { id: input.tableId },
           data: {
@@ -376,47 +405,27 @@ export const baseRouter = createTRPCRouter({
             tableId: input.tableId
           }
         })
-        for (const record of records) {
-          const newData = record.data as Prisma.JsonObject
-          newData[newField.id] = ""
-          await tx.record.update({
-            where: { id: record.id},
-            data: { data: newData }
-          })
-        }
+        await tx.cell.createMany({data: records.map(record => ({
+          recordId: record.id,
+          fieldId: newField.id,
+          value: ""
+        }))})
         return newField
       })
     }),
   deleteField: protectedProcedure
     .input(z.object({fieldId: z.string()}))
     .mutation(async ({ctx, input}) => {
-      return ctx.db.$transaction(async (tx) => {
-        const deletedField = await tx.field.delete({
-          where: {id: input.fieldId}
-        })
-        const records = await tx.record.findMany({
-          where: {tableId: deletedField.tableId}
-        })
-        for (const record of records) {
-          const updatedData = record.data as Prisma.JsonObject
-          delete updatedData[deletedField.id]
-          await tx.record.update({
-            where: {id: record.id},
-            data: {data: updatedData}
-          })
-        }
+      return await ctx.db.field.delete({
+        where: {id: input.fieldId}
       })
     }),
-  updateRecord: protectedProcedure
-    .input(z.object({recordId: z.string(), newRecordData: z.record(z.string(), z.string())}))
+  updateCell: protectedProcedure
+    .input(z.object({cellId: z.string(), newValue: z.string()}))
     .mutation(async ({ctx, input}) => {
-      return ctx.db.record.update({
-        where: {
-          id: input.recordId
-        },
-        data: {
-          data: input.newRecordData
-        }
+      return ctx.db.cell.update({
+        where: {id: input.cellId},
+        data: {value: input.newValue}
       })
     }),
   deleteRecords: protectedProcedure
