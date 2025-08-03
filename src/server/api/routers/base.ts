@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, Prisma, PrismaClient } from "@prisma/client"
+import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 
 function getMockData(fieldName: string, type: FieldType): string {
@@ -19,6 +19,10 @@ function getMockData(fieldName: string, type: FieldType): string {
     undefined
     return fakerField?.toString() ?? ""
   }
+}
+
+function getDefaultOperator(fieldType: FieldType) {
+  return fieldType === FieldType.Text ? FilterOperator.CONTAINS : FilterOperator.GREATERTHAN
 }
 async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
   let newTable = await tx.table.create({
@@ -279,8 +283,8 @@ export const baseRouter = createTRPCRouter({
       return await ctx.db.view.findUnique({
         where: {id : input.viewId},
         include: {
-          filters: true,
-          sorts: true
+          filters: { orderBy: { createdAt: 'asc' }},
+          sorts: { orderBy: { createdAt: 'asc' }}
         }
       })
     }),
@@ -450,5 +454,50 @@ export const baseRouter = createTRPCRouter({
         })
         return deleteEvent
       })
-    })
+    }),
+  addFilter: protectedProcedure
+    .input(z.object({viewId: z.string(), fieldId: z.string(), fieldType: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.filter.create({data: {
+        joinType: FilterJoinType.AND,
+        viewId: input.viewId,
+        fieldId: input.fieldId,
+        operator: getDefaultOperator(input.fieldType as FieldType),
+        compareVal: ""
+      }})
+    }),
+  changeFilterField: protectedProcedure
+    .input(z.object({filterId: z.string(), newFieldId: z.string(), newFieldType: z.string(), sameType: z.boolean()}))
+    .mutation(async ({ctx, input}) => {
+      const newData: Prisma.FilterUpdateInput = {
+        fieldId: input.newFieldId
+      }
+      if (!input.sameType) {
+        newData.compareVal = ""
+        const newFieldType: FieldType = input.newFieldType as FieldType
+        newData.operator = getDefaultOperator(newFieldType)
+      }
+      return ctx.db.filter.update({
+        where: {id: input.filterId},
+        data: newData
+      })
+    }),
+  changeFilterOperator: protectedProcedure
+    .input(z.object({filterId: z.string(), newOperator: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      const newOperator = input.newOperator as FilterOperator
+      const newData: Prisma.FilterUpdateInput = {
+        operator: newOperator
+      }
+      if (newOperator === FilterOperator.EMPTY || newOperator === FilterOperator.NOTEMPTY) newData.compareVal = ""
+      return ctx.db.filter.update({
+        where: {id: input.filterId},
+        data: newData
+      })
+    }),
+  deleteFilter: protectedProcedure
+    .input(z.object({filterId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.filter.delete({where: {id: input.filterId}})
+    }),
 })

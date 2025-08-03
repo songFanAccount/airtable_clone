@@ -226,59 +226,62 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
             </div>
           </div>
         </div>
-        <div className="flex flex-col sticky bottom-0 border-[#dfe2e4]"
-          style={{
-            width: fields ? `${fields.length * 180 + 87}px` : undefined,
-            borderTopWidth: (records && records.length >= 40) ? "1px" : undefined
-          }}
-        >
-          <button
-            className="flex flex-row items-center w-full bg-white text-gray-500 h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
-            style={{ borderColor: "#dfe2e4" }}
-            onClick={onAddRecord}
-            disabled={addRecordStatus === "pending"}
+        {
+          tableData && view &&
+          <div className="flex flex-col sticky bottom-0 border-[#dfe2e4]"
+            style={{
+              width: includedFields ? `${includedFields.length * 180 + 87}px` : undefined,
+              borderTopWidth: (records && records.length >= 40) ? "1px" : undefined
+            }}
           >
-            <div className="w-[87px] h-full flex flex-row items-center pl-4">
-              <AddIcon className="w-5 h-5 ml-[6px]" />
-            </div>
-            <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
-              <span className="mx-[6px]">Add one empty row</span>
-            </div>
-            <div className="ml-[6px] flex flex-row items-center gap-2">
-              {
-                isFetching &&
-                <div className="flex flex-row items-center h-full flex-shrink-0">
-                  <LoadingIcon className="w-4 h-4 animate-spin"/>
-                </div>
-              }
-              <span>
-                {bottomMsg}
-              </span>
-            </div>
-          </button>
-          <div
-            className="flex flex-row items-center w-full bg-white h-8 text-gray-500 border-box border-b-[1px]"
-            style={{ borderColor: "#dfe2e4" }}
+            <button
+              className="flex flex-row items-center w-full bg-white text-gray-500 h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
+              style={{ borderColor: "#dfe2e4" }}
+              onClick={onAddRecord}
+              disabled={addRecordStatus === "pending"}
             >
-            <div className="w-[87px] h-full flex flex-row items-center pl-4">
-              <AddIcon className="w-5 h-5 ml-[6px]" />
+              <div className="w-[87px] h-full flex flex-row items-center pl-4">
+                <AddIcon className="w-5 h-5 ml-[6px]" />
+              </div>
+              <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
+                <span className="mx-[6px]">Add one empty row</span>
+              </div>
+              <div className="ml-[6px] flex flex-row items-center gap-2">
+                {
+                  isFetching &&
+                  <div className="flex flex-row items-center h-full flex-shrink-0">
+                    <LoadingIcon className="w-4 h-4 animate-spin"/>
+                  </div>
+                }
+                <span>
+                  {bottomMsg}
+                </span>
+              </div>
+            </button>
+            <div
+              className="flex flex-row items-center w-full bg-white h-8 text-gray-500 border-box border-b-[1px]"
+              style={{ borderColor: "#dfe2e4" }}
+              >
+              <div className="w-[87px] h-full flex flex-row items-center pl-4">
+                <AddIcon className="w-5 h-5 ml-[6px]" />
+              </div>
+              {
+                xs.map((x, index) => (
+                  <button key={index} className="flex flex-row items-center border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
+                    disabled={addXRecordsStatus === "pending"}
+                    onClick={() => onAddXRecords(x)}
+                    style={{
+                      flex: index === 0 ? undefined : 1,
+                      width: index === 0 ? "180px" : undefined
+                    }}
+                  >
+                    <span className="mx-[6px]">Add {xsStr[index]} rows</span>
+                  </button>
+                ))
+              }
             </div>
-            {
-              xs.map((x, index) => (
-                <button key={index} className="flex flex-row items-center border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
-                  disabled={addXRecordsStatus === "pending"}
-                  onClick={() => onAddXRecords(x)}
-                  style={{
-                    flex: index === 0 ? undefined : 1,
-                    width: index === 0 ? "180px" : undefined
-                  }}
-                >
-                  <span className="mx-[6px]">Add {xsStr[index]} rows</span>
-                </button>
-              ))
-            }
           </div>
-        </div>
+        }
       </div>
     </div>
   )

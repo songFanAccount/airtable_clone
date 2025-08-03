@@ -162,6 +162,7 @@ model Filter {
     fieldId String
     operator FilterOperator
     compareVal String
+    createdAt DateTime @default(now())
 }
 
 enum SortOperator {

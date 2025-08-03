@@ -3,7 +3,7 @@ import { IoMdMenu as MenuIcon } from "react-icons/io";
 import { MdOutlineTableChart as TableIcon } from "react-icons/md";
 import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
-import ViewConfigs from "./ViewConfigs";
+import ViewConfigs from "./ViewConfigs/ViewConfigs";
 import * as Dialog from "@radix-ui/react-dialog";
 import { toast } from "react-toastify";
 

@@ -13,10 +13,10 @@ import { api } from "~/trpc/react";
 import { toastTODO } from "~/hooks/helpers";
 import { toast } from "react-toastify";
 
-const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean }) => {
+const FieldCell = ({ field, isFirst, onlyField } : { field : FieldData, isFirst: boolean, onlyField: boolean }) => {
   const [fieldHovered, setFieldHovered] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
-  const [isRenaming, setIsRenaming] = useState<boolean>(false)
+  const [isRenaming] = useState<boolean>(false)
   const TypeIcon = field.type === FieldType.Text ? TextTypeIcon : NumberTypeIcon
   const dim = field.type === FieldType.Text ? "16px" : "12px"
   const utils = api.useUtils()
@@ -29,6 +29,10 @@ const FieldCell = ({ field, isFirst } : { field : FieldData, isFirst: boolean })
   })
   function onDeleteField() {
     if (status === "pending") return
+    if (onlyField) {
+      toast.error("Not allowed to delete only field for simplicity")
+      return
+    }
     if (field) {
       deleteField({fieldId: field.id})
       setEditing(false)
@@ -165,7 +169,7 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
         </div>
       </div>
       {
-        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0}/>)
+        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0} onlyField={fields.length === 1}/>)
       }
       <Popover.Root
         open={createOpen}

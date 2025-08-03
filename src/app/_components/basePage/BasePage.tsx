@@ -6,7 +6,7 @@ import { api } from "~/trpc/react"
 import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
 import Content from "./Content/Content"
-import type { FieldType } from "@prisma/client"
+import type { $Enums, FieldType } from "@prisma/client"
 
 export type BaseData = {
   user: {
@@ -61,11 +61,28 @@ export type ViewData = {
   id: string;
 } | undefined
 export type ViewsData = ViewData[] | undefined
+export type FilterData = {
+  id: string;
+  viewId: string;
+  fieldId: string;
+  operator: $Enums.FilterOperator;
+  joinType: $Enums.FilterJoinType;
+  compareVal: string;
+}
+export type SortData = {
+  id: string,
+  viewId: string,
+  fieldId: string,
+  operator: $Enums.SortOperator,
+  createdAt: Date
+}
 export type ViewDetailedData = {
   id: string,
   tableId: string,
   name: string,
-  hiddenFieldIds: string[]
+  hiddenFieldIds: string[],
+  filters: FilterData[],
+  sorts: SortData[]
 } | undefined | null
 export type FieldData = {
   tableId: string;
