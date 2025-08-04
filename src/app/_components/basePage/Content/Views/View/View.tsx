@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
+import { FilterOperator } from "@prisma/client";
 
 const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedData }) => {
   const utils = api.useUtils()
@@ -153,6 +154,11 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
       }
     }
   }, [mainSelectedCell])
+  const filtersActive = view?.filters?.filter(filter => {
+    if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
+    else return filter.compareVal !== ""
+  }).map(filter => fields?.find(field => filter.fieldId === field.id)?.id ?? "") ?? []
+  const activeFilterFieldIds = [...new Set(filtersActive)]
   const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
@@ -163,6 +169,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
             fields={includedFields}
             selectAll={selectAll}
             onCheck={onSelectAll}
+            activeFilterFieldIds={activeFilterFieldIds}
           />
         </div>
         <div ref={ref} className="max-h-full overflow-y-auto relative">
@@ -197,6 +204,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
                       ?
                         <Record
                           fields={includedFields}
+                          activeFilterFieldIds={activeFilterFieldIds}
                           record={record}
                           recordSelected={selectedRecords.has(absoluteIndex)}
                           onCheck={() => checkRecord(absoluteIndex, record.id)}

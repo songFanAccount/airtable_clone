@@ -121,6 +121,7 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
                   className="bg-white rounded-[6px] w-fit p-4 z-50 relative top-2 left-0 text-[13px]"
                   style={{
                     boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
+                    width: `${popoverWidth}px`
                   }}
                 >
                   {

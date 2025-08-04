@@ -16,13 +16,15 @@ interface CellProps {
   mainSelectedCell?: [number,number], 
   isFirst: boolean, 
   isSelected: boolean, 
+  isSelectedRow: boolean,
+  isFiltered: boolean,
   onClick: () => void, 
   onCellChange: (cellId: string, newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const value = cell?.value
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
@@ -68,9 +70,10 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, onClick, onC
   return (
     <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
       <Popover.Anchor asChild>
-        <div className="relative flex flex-row justify-between items-center w-[180px] h-full"
+        <div className="relative flex flex-row justify-between items-center hover:[background-color:var(--hover-color)!important] w-[180px] h-full"
           style={{
-            backgroundColor: isSelected ? "white" : undefined,
+            backgroundColor: isFiltered ? isSelectedRow ? "#e2f1e3" : "#ebfbec" : isSelected ? "white" : undefined,
+            '--hover-color': isFiltered ? "#e2f1e3" : undefined,
             borderRight: 
               isSelected 
               ?
@@ -80,7 +83,7 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, onClick, onC
             borderLeft: isSelected && mainSelectedCell?.[1] !== 1 ? "2px solid #166ee1" : undefined,
             borderBottom: isSelected ? "2px solid #166ee1" : undefined,
             borderTop: (isSelected && mainSelectedCell?.[0] !== 0) ? "2px solid #166ee1" : undefined,
-          }}
+          } as React.CSSProperties}
           onClick={onClick}
           onDoubleClick={() => {if (!editing) setEditing(true)}}
           onContextMenu={(e) => {e.preventDefault(); onClick(); setActionsOpen(true)}}
@@ -147,7 +150,8 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, onClick, onC
 }
 
 interface RecordProps {
-  fields: FieldsData, 
+  fields: FieldsData,
+  activeFilterFieldIds: string[],
   record: RecordData, 
   recordSelected: boolean, 
   onCheck: () => void, 
@@ -157,7 +161,7 @@ interface RecordProps {
   multipleRecordsSelected: boolean,
   onDeleteRecord: () => void
 }
-const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
+const Record = ({ fields, activeFilterFieldIds, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const { cells } = record
   const [recordData, setRecordData] = useState<CellData[]>(cells)
   useEffect(() => {
@@ -222,11 +226,13 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
       {fields?.map((field, index) => 
         <Cell 
           key={index}
+          isFiltered={activeFilterFieldIds.includes(field.id)}
           cell={recordData?.find(cell => cell.fieldId === field.id)}
           field={field}
           mainSelectedCell={mainSelectedCell} 
           isFirst={index === 0}
-          isSelected={isSelectedRow && mainSelectedCell[1] === index} 
+          isSelected={isSelectedRow && mainSelectedCell[1] === index}
+          isSelectedRow={isSelectedRow}
           onClick={() => setMainSelectedCell([rowNum-1, index])}
           onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue, field.type)}
           multipleRecordsSelected={multipleRecordsSelected}

@@ -8,12 +8,14 @@ import { CheckIcon } from "@radix-ui/react-icons";
 import { MdKeyboardArrowDown as DropdownIcon, MdOutlineModeEdit as RenameIcon } from "react-icons/md";
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import { FieldType } from "@prisma/client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { toastTODO } from "~/hooks/helpers";
 import { toast } from "react-toastify";
 
-const FieldCell = ({ field, isFirst, onlyField } : { field : FieldData, isFirst: boolean, onlyField: boolean }) => {
+const FieldCell = ({ field, isFirst, onlyField, isFiltered } : { field : FieldData, isFirst: boolean, onlyField: boolean, isFiltered: boolean }) => {
+  const bg = isFiltered ? "#f9fef9" : "white"
+  const hoverBg = isFiltered ? "#f9fef9" : "#f8f8f8"
   const [fieldHovered, setFieldHovered] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [isRenaming] = useState<boolean>(false)
@@ -41,10 +43,16 @@ const FieldCell = ({ field, isFirst, onlyField } : { field : FieldData, isFirst:
   return (
     <Popover.Root open={editing} onOpenChange={setEditing}>
       <Popover.Anchor asChild>
-        <div className="flex flex-row justify-between items-center w-[180px] h-full hover:bg-[#f8f8f8] cursor-default border-box border-r-[1px] px-2 bg-white"
-          style={{
-            borderColor: isFirst ? "#d1d1d1" : "#dfe2e4"
-          }}
+        <div
+          className="flex flex-row justify-between items-center w-[180px] h-full hover:[background-color:var(--hover-color)!important] cursor-default border-box border-r-[1px] border-b-[1px] px-2"
+          style={
+            {
+              borderColor: isFirst ? "#d1d1d1" : "#dfe2e4",
+              "--hover-color": hoverBg,
+              backgroundColor: bg
+            } as React.CSSProperties
+          }
+
           onMouseEnter={() => setFieldHovered(true)}
           onMouseLeave={() => setFieldHovered(false)}
           onContextMenu={(e) => {e.preventDefault(); setEditing(true)}}
@@ -98,7 +106,7 @@ const FieldCell = ({ field, isFirst, onlyField } : { field : FieldData, isFirst:
     </Popover.Root>
   )
 }
-const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void }) => {
+const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void, activeFilterFieldIds: string[] }) => {
   const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
   const [newFieldName, setNewFieldName] = useState<string>("")
@@ -143,12 +151,12 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
     }
   }
   return (
-    <div className="flex flex-row items-center h-8 border-box border-b-[1px] bg-[#fbfcfe] font-[500] flex-shrink-0"
+    <div className="flex flex-row items-center w-full h-8 font-[500] flex-shrink-0"
       style={{
         borderColor: "#d1d1d1"
       }}
     >
-      <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white">
+      <div className="w-[87px] border-box border-[#dfe2e4] border-b-[1px] h-full flex flex-row items-center pl-4 bg-white">
         <div className="flex items-center space-x-2">
           <Checkbox.Root
             checked={selectAll}
@@ -164,14 +172,14 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
         </div>
       </div>
       {
-        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0} onlyField={fields.length === 1}/>)
+        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0} onlyField={fields.length === 1} isFiltered={activeFilterFieldIds.includes(field.id)}/>)
       }
       <Popover.Root
         open={createOpen}
         onOpenChange={setCreateOpen}
       >
         <Popover.Trigger asChild>
-          <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-[#dfe2e4] bg-white hover:bg-[#f8f8f8] cursor-pointer"
+          <button className="h-full w-[94px] flex justify-center items-center border-box border-r-[1px] border-b-[1px] border-[#dfe2e4] bg-white hover:bg-[#f8f8f8] cursor-pointer"
             onClick={() => setCreateOpen(true)}
           >
             <AddIcon className="h-5 w-5"/>

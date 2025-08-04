@@ -390,13 +390,14 @@ export const baseRouter = createTRPCRouter({
         const filterConditions: Prisma.RecordWhereInput[] = []
         for (const [fieldId, filters] of Object.entries(fieldFilters)) {
           if (!filters[0]) continue
-          const andCondition: Prisma.CellWhereInput[] = []
+          const andConditions: Prisma.CellWhereInput[] = []
+          const orConditions: Prisma.CellWhereInput[] = []
           const someCondition: Prisma.CellWhereInput = {fieldId}
-          const field: Field = filters[0].field
           for (const filter of filters) {
-            andCondition.push(generateCellWhereCondition(filter))
+            if (filter.joinType === FilterJoinType.AND) andConditions.push(generateCellWhereCondition(filter))
+            else orConditions.push(generateCellWhereCondition(filter))
           }
-          someCondition.AND = andCondition
+          someCondition.OR = [{AND: andConditions}, {OR: orConditions}]
           const recordCellsWhereCondition: Prisma.CellListRelationFilter = {some: someCondition}
           filterConditions.push({cells: recordCellsWhereCondition})
         }
