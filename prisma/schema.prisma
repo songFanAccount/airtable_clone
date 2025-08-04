@@ -101,6 +101,7 @@ model Field {
   tableId       String
   table         Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
   cells         Cell[]    @relation("FieldCells")
+  filters Filter[] @relation("FieldFilters")
   type          FieldType
   createdAt     DateTime  @default(now())
   @@unique([tableId, name])
@@ -124,6 +125,7 @@ model Cell {
   fieldId   String
   field     Field    @relation("FieldCells", fields: [fieldId], references: [id], onDelete: Cascade)
   value     String
+  numValue Float?
   @@unique([recordId, fieldId])
 }
 
@@ -160,6 +162,7 @@ model Filter {
     viewId String
     view View @relation("ViewFilters", fields: [viewId], references: [id], onDelete: Cascade)
     fieldId String
+    field Field @relation("FieldFilters", fields: [fieldId], references: [id], onDelete: Cascade)
     operator FilterOperator
     compareVal String
     createdAt DateTime @default(now())

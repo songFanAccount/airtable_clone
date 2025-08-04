@@ -168,10 +168,10 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
   const active = isHovered || isSelectedRow || recordSelected
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
   const { mutate: updateCell } = api.base.updateCell.useMutation()
-  function onRecordChange(cellId: string, newValue: string) {
+  function onRecordChange(cellId: string, newValue: string, type: FieldType) {
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
-      updateCell({cellId, newValue})
+      updateCell({cellId, newValue, type})
     }, 1000)
     setTimer(newTimer)
   }
@@ -228,7 +228,7 @@ const Record = ({ fields, record, recordSelected, onCheck, rowNum, mainSelectedC
           isFirst={index === 0}
           isSelected={isSelectedRow && mainSelectedCell[1] === index} 
           onClick={() => setMainSelectedCell([rowNum-1, index])}
-          onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue)}
+          onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue, field.type)}
           multipleRecordsSelected={multipleRecordsSelected}
           onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
           onTab={onTab}

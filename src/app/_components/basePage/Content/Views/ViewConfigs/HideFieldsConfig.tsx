@@ -3,14 +3,21 @@ import type { FieldsData } from "../../../BasePage"
 import { ImTextColor as TextTypeIcon } from "react-icons/im";
 import { FaHashtag as NumberTypeIcon } from "react-icons/fa";
 import * as Switch from '@radix-ui/react-switch';
+import { api } from "~/trpc/react";
 
 interface Props {
+  viewId: string,
   fields: FieldsData,
   hiddenFieldIds: Set<string>,
-  setHiddenFieldIds: (newIds: Set<string>) => void
 }
 
-const HideFieldsConfig = ({ fields, hiddenFieldIds, setHiddenFieldIds } : Props) => {
+const HideFieldsConfig = ({ viewId, fields, hiddenFieldIds } : Props) => {
+  const utils = api.useUtils()
+  const { mutate: updateHiddenFields, status: updateHFStatus } = api.base.updateViewHiddenFields.useMutation({
+    onSuccess: async (_) => {
+      await utils.base.getView.invalidate()
+    }
+  })
   return (
     <div className="flex flex-col gap-2 w-full text-gray-600 text-[13px]">
       {
@@ -24,7 +31,7 @@ const HideFieldsConfig = ({ fields, hiddenFieldIds, setHiddenFieldIds } : Props)
                 const newHiddenFieldIds = new Set(hiddenFieldIds)
                 if (checked) newHiddenFieldIds.add(field.id)
                 else newHiddenFieldIds.delete(field.id)
-                setHiddenFieldIds(newHiddenFieldIds)
+                updateHiddenFields({ viewId: viewId, fieldIds: [...newHiddenFieldIds] });
               }}
             >
               <Switch.Root
@@ -35,7 +42,7 @@ const HideFieldsConfig = ({ fields, hiddenFieldIds, setHiddenFieldIds } : Props)
                   const newHiddenFieldIds = new Set(hiddenFieldIds)
                   if (!value) newHiddenFieldIds.add(field.id)
                   else newHiddenFieldIds.delete(field.id)
-                  setHiddenFieldIds(newHiddenFieldIds)
+                  updateHiddenFields({ viewId: viewId, fieldIds: [...newHiddenFieldIds] });
                 }}
                 className="
                   w-[12.8px] h-[8px] bg-gray-300 rounded-full relative 
@@ -73,8 +80,8 @@ const HideFieldsConfig = ({ fields, hiddenFieldIds, setHiddenFieldIds } : Props)
       <div className="flex flex-row items-center justify-between h-[26px] w-full mt-2 text-[12px] font-[500] text-gray-700 hover:text-black">
         {
           [
-            {text: "Hide all", func: () => setHiddenFieldIds(new Set(fields?.map(field => field.id)))},
-            {text: "Show all", func: () => setHiddenFieldIds(new Set())}
+            { text: "Hide all", func: () => updateHiddenFields({ viewId: viewId, fieldIds: fields?.map(field => field.id) ?? [] }) },
+            { text: "Show all", func: () => updateHiddenFields({ viewId: viewId, fieldIds: [] }) }
           ].map(({text, func}, index) => (
             <button key={index} className="w-[136px] h-full rounded-[3px] flex justify-center items-center bg-[#f5f5f5] hover:bg-[#f2f2f2] cursor-pointer"
               onClick={func}

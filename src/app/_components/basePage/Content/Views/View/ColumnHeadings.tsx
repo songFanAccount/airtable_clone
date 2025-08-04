@@ -136,12 +136,7 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck } : { tableId?: st
           return
         }
       }
-      let columnNumber = 0
-      for (const field of fields) {
-        if (field?.columnNumber > columnNumber) columnNumber = field?.columnNumber
-      }
-      columnNumber++
-      createField({ tableId: tableId, fieldName, fieldType, columnNumber })
+      createField({ tableId: tableId, fieldName, fieldType })
       setNewFieldName("")
       setNewFieldType(undefined)
       setCreateOpen(false)

@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, type Filter } from "@prisma/client"
+import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, type Field, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 
 function getMockData(fieldName: string, type: FieldType): string {
@@ -21,8 +21,52 @@ function getMockData(fieldName: string, type: FieldType): string {
   }
 }
 
+type FilterWithField = Prisma.FilterGetPayload<{
+  include: { field: true }
+}>;
+
+function generateCellWhereCondition(filter: FilterWithField): Prisma.CellWhereInput {
+  const { type } = filter.field
+  const { operator, compareVal } = filter
+  if (type === FieldType.Text) {
+    let condition: Prisma.StringFilter<"Cell"> = {equals: ""}
+    switch (operator) {
+      case FilterOperator.CONTAINS:
+        condition = {contains: compareVal}
+        break;
+      case FilterOperator.NOTCONTAINS:
+        condition = { not: { contains: compareVal}}
+        break;
+      case FilterOperator.EQUALTO:
+        condition = { equals: compareVal }
+        break;
+      case FilterOperator.NOTEMPTY:
+        condition = { not: {equals: ""}}
+        break;
+      default:
+        break
+    }
+    return {value: condition}
+  } else {
+    let condition: Prisma.FloatNullableFilter<"Cell"> = { gt: Number(compareVal) }
+    switch (operator) {
+      case FilterOperator.SMALLERTHAN:
+        condition = { lt: Number(compareVal) }
+        break;
+      default:
+        break
+    }
+    return {numValue: condition}
+  }
+}
+
 function getDefaultOperator(fieldType: FieldType) {
   return fieldType === FieldType.Text ? FilterOperator.CONTAINS : FilterOperator.GREATERTHAN
+}
+
+export function validFilter(filter: Filter) {
+  if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
+  return filter.compareVal !== ""
 }
 async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
   let newTable = await tx.table.create({
@@ -74,10 +118,12 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
     for (const fieldProps of defaultFields) {
       const fieldId = fieldProps.id
       if (!fieldId) continue
+      const mockDataStr = getMockData(fieldProps.name, fieldProps.type)
       await tx.cell.create({data: {
         recordId: record.id,
         fieldId,
-        value: getMockData(fieldProps.name, fieldProps.type)
+        value: mockDataStr,
+        numValue: fieldProps.type === FieldType.Number ? Number(mockDataStr) : undefined
       }})
     }
   }
@@ -330,16 +376,35 @@ export const baseRouter = createTRPCRouter({
         const view = await tx.view.findUniqueOrThrow({
           where: {id: input.viewId},
           include: {
-            filters: true
+            filters: {
+              include: {field: true}
+            },
           }
         })
-        const filters: Filter[] = view.filters
-        console.log(filters)
+        const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
+        const fieldFilters: Record<string, FilterWithField[]> = {}
+        filters.forEach((filter) => {
+          if (Object.keys(fieldFilters).includes(filter.fieldId)) fieldFilters[filter.fieldId]?.push(filter)
+          else fieldFilters[filter.fieldId] = [filter]
+        })
+        const filterConditions: Prisma.RecordWhereInput[] = []
+        for (const [fieldId, filters] of Object.entries(fieldFilters)) {
+          if (!filters[0]) continue
+          const andCondition: Prisma.CellWhereInput[] = []
+          const someCondition: Prisma.CellWhereInput = {fieldId}
+          const field: Field = filters[0].field
+          for (const filter of filters) {
+            andCondition.push(generateCellWhereCondition(filter))
+          }
+          someCondition.AND = andCondition
+          const recordCellsWhereCondition: Prisma.CellListRelationFilter = {some: someCondition}
+          filterConditions.push({cells: recordCellsWhereCondition})
+        }
         const totalRecordsInView = await tx.record.count({
-          where: {tableId: view.tableId},
+          where: {tableId: view.tableId, AND: filterConditions},
         })
         const records = await tx.record.findMany({
-          where: {tableId: view.tableId},
+          where: {tableId: view.tableId, AND: filterConditions},
           include: {
             cells: {
               where: {fieldId: {notIn: view.hiddenFieldIds}},
@@ -381,10 +446,12 @@ export const baseRouter = createTRPCRouter({
         const cellsToInsert: Prisma.CellCreateManyInput[] = []
         insertedRecords.forEach(record => {
           fields.forEach(field => {
+            const mockDataStr = getMockData(field.name, field.type)
             cellsToInsert.push({
               recordId: record.id,
               fieldId: field.id,
-              value: getMockData(field.name, field.type)
+              value: mockDataStr,
+              numValue: Number(mockDataStr)
             })
           })
         })
@@ -400,13 +467,18 @@ export const baseRouter = createTRPCRouter({
       }, {maxWait: 200000, timeout: 600000})
     }),
   addNewField: protectedProcedure
-    .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string(), columnNumber: z.number()}))
+    .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
+        const largestColNum = (await tx.field.findFirstOrThrow({
+          where: {tableId: input.tableId},
+          orderBy: {columnNumber: 'desc'},
+          select: {columnNumber: true}
+        })).columnNumber
         const newField = await tx.field.create({
           data: {
             name: input.fieldName,
-            columnNumber: input.columnNumber,
+            columnNumber: largestColNum+1,
             tableId: input.tableId,
             type: input.fieldType === "TEXT" ? FieldType.Text : FieldType.Number
           }
@@ -432,11 +504,12 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   updateCell: protectedProcedure
-    .input(z.object({cellId: z.string(), newValue: z.string()}))
+    .input(z.object({cellId: z.string(), newValue: z.string(), type: z.string()}))
     .mutation(async ({ctx, input}) => {
+      const type: FieldType = input.type as FieldType
       return ctx.db.cell.update({
         where: {id: input.cellId},
-        data: {value: input.newValue}
+        data: {value: input.newValue, numValue: type === FieldType.Number ? Number(input.newValue) : undefined}
       })
     }),
   deleteRecords: protectedProcedure
@@ -477,7 +550,11 @@ export const baseRouter = createTRPCRouter({
     .input(z.object({filterId: z.string(), newFieldId: z.string(), newFieldType: z.string(), sameType: z.boolean()}))
     .mutation(async ({ctx, input}) => {
       const newData: Prisma.FilterUpdateInput = {
-        fieldId: input.newFieldId
+        field: {
+          connect: {
+            id: input.newFieldId
+          }
+        }
       }
       if (!input.sameType) {
         newData.compareVal = ""

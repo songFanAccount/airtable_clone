@@ -13,10 +13,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
-  const [totalNumRows, setTotalNumRows] = useState<number>(tableData?.recordCount ?? 0)
-  useEffect(() => {
-    setTotalNumRows(tableData?.recordCount ?? 0)
-  }, [tableData])
+  const [totalNumRows, setTotalNumRows] = useState<number>(0)
   const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set())
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set())
   const [selectAll, setSelectAll] = useState<boolean>(false)
@@ -34,7 +31,18 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
     enabled: !!tableData?.id && !!view?.id,
     placeholderData: keepPreviousData
   })
+  useEffect(() => {
+    if (view) {
+      void utils.base.getRecords.invalidate();
+    }
+  }, [view, utils, tableData?.id]);
   const records = recordsObj?.records
+  const viewNumRecords = recordsObj?.totalRecordsInView
+  useEffect(() => {
+    if (viewNumRecords !== undefined) {
+      setTotalNumRows(viewNumRecords)
+    }
+  }, [viewNumRecords])
   interface Cache {
     data: RecordsData,
     startIndex: number,
@@ -90,7 +98,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
     }
   })
   const xs = [10, 100, 100000, 1000000]
-  const xsStr = ["10", "100", "100k", "1 million"]
+  const xsStr = ["10", "100", "100k", "1 mil"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
     if (totalNumRows + x > 1500000) {
@@ -145,7 +153,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
       }
     }
   }, [mainSelectedCell])
-  const bottomMsg = isFetching ? "Fetching rows..." : `Total rows: ${totalNumRows}. Loaded rows: ${startIndex+1} - ${endIndex}. Num fetches: ${numFetches}`
+  const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
       <div className="flex flex-col h-full w-full pb-19 relative">
@@ -211,7 +219,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
                             <span className="w-8 h-8 flex justify-center items-center">{absoluteIndex+1}</span>
                           </div>
                           {
-                            fields?.map((_, index) => (
+                            includedFields?.map((_, index) => (
                               <div
                                 key={index}
                                 className="w-[180px] h-8 border-r-[1px] border-[#dfe2e4] border-box"
@@ -227,7 +235,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
           </div>
         </div>
         {
-          tableData && view &&
+          tableData && view && includedFields && includedFields.length > 0 &&
           <div className="flex flex-col sticky bottom-0 border-[#dfe2e4]"
             style={{
               width: includedFields ? `${includedFields.length * 180 + 87}px` : undefined,
@@ -240,20 +248,20 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
               onClick={onAddRecord}
               disabled={addRecordStatus === "pending"}
             >
-              <div className="w-[87px] h-full flex flex-row items-center pl-4">
+              <div className="min-w-[87px] w-[87px] h-full flex flex-row items-center pl-4">
                 <AddIcon className="w-5 h-5 ml-[6px]" />
               </div>
-              <div className="flex flex-row items-center w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
+              <div className="flex flex-row items-center min-w-[180px] w-[180px] border-box border-r-[1px] h-full border-[#d1d1d1]">
                 <span className="mx-[6px]">Add one empty row</span>
               </div>
-              <div className="ml-[6px] flex flex-row items-center gap-2">
+              <div className="ml-[6px] flex flex-row items-center gap-2 truncate">
                 {
                   isFetching &&
                   <div className="flex flex-row items-center h-full flex-shrink-0">
                     <LoadingIcon className="w-4 h-4 animate-spin"/>
                   </div>
                 }
-                <span>
+                <span className="flex-1 truncate pr-[6px]">
                   {bottomMsg}
                 </span>
               </div>
@@ -275,7 +283,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
                       width: index === 0 ? "180px" : undefined
                     }}
                   >
-                    <span className="mx-[6px]">Add {xsStr[index]} rows</span>
+                    <span className="truncate mx-[6px]">{includedFields && includedFields.length > 2 ? `Add ${xsStr[index]} rows` : `${xsStr[index]}`}</span>
                   </button>
                 ))
               }

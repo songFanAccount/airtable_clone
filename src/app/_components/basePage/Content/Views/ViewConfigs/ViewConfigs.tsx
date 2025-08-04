@@ -8,7 +8,7 @@ import { GrShare as ShareIcon } from "react-icons/gr";
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useRef, useState } from "react";
 import { toastNoUI } from "~/hooks/helpers";
-import { type FilterData, type FieldsData, type ViewDetailedData } from "../../../BasePage";
+import { type FieldsData, type ViewDetailedData } from "../../../BasePage";
 import { api } from "~/trpc/react";
 import HideFieldsConfig from "./HideFieldsConfig";
 import FiltersConfig, { operatorToText } from "./FiltersConfig";
@@ -25,25 +25,10 @@ interface ConfigButton {
 const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: FieldsData }) => {
   const utils = api.useUtils()
   /* Hide fields config */
-  const [hiddenFieldIds, setHiddenFieldIds] = useState<Set<string>>(new Set())
+  const hiddenFieldIds = new Set(view?.hiddenFieldIds)
   const numHidden = hiddenFieldIds.size
-  const { mutate: updateHiddenFields, status: updateHFStatus } = api.base.updateViewHiddenFields.useMutation({
-    onSuccess: async (_) => {
-      await utils.base.getView.invalidate()
-      await utils.base.getRecords.invalidate()
-    }
-  })
-  useEffect(() => {
-    if (!view) return;
-    const timeout = setTimeout(() => {
-      if (updateHFStatus !== "pending") {
-        updateHiddenFields({ viewId: view.id, fieldIds: [...hiddenFieldIds] });
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [hiddenFieldIds]);
   /* Filter config */
-  const [filters, setFilters] = useState<FilterData[] | undefined>(view?.filters)
+  const filters = view?.filters
   const filtersActive = filters?.filter(filter => {
     if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
     else return filter.compareVal !== ""
@@ -70,7 +55,8 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
       for (const updateI of filtersToUpdateRef.current) {
-        if (!filters[updateI] || !filterVals[updateI]) return
+        if (!filters[updateI]) continue
+        if (filterVals[updateI] === undefined) continue
         changeFilterCompareVal({filterId: filters[updateI].id, newCompareVal: updateI === i ? newVal : filterVals[updateI]})
         filtersToUpdateRef.current.delete(updateI)
       }
@@ -83,12 +69,6 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
       setFilterVals(newFilterVals)
     }
   }, [filters])
-  useEffect(() => {
-    if (view) {
-      setHiddenFieldIds(new Set(view.hiddenFieldIds))
-      setFilters(view.filters)
-    }
-  }, [view])
   const filterText = activeFilterNames.length > 0 ? `Filtered by ${activeFilterNames[0]}${activeFilterNames.length > 3 ? ` and ${activeFilterNames.length - 1} other fields` : activeFilterNames.length > 1 ? `, ${activeFilterNames.slice(1).join(', ')}` : ''}` : "Filter"
   const buttons: ConfigButton[] = [
     {Icon: HideIcon, bgColor: numHidden > 0 ? "#c4ecff" : undefined, outlineColor: numHidden > 0 ? "#b0d4e5" : undefined, text: numHidden > 0 ? `${numHidden} hidden field${numHidden > 1 ? "s" : ""}` : "Hide fields", popoverWidth: 320},
@@ -105,7 +85,7 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
       {
         buttons.map((buttonInfo, index) => {
           const {Icon, bgColor, outlineColor, text, size, popoverWidth} = buttonInfo
-          const bg = (index === 0 || index === 1) && numHidden > 0 ? bgColor : undefined
+          const bg = ((index === 0 && numHidden > 0) || (index === 1 && activeFilterNames.length > 0)) ? bgColor : undefined
           const hoverBg = bgColor ?? "#f2f2f2"
           return (
             <Popover.Root
@@ -138,16 +118,19 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
                   onOpenAutoFocus={(e) => e.preventDefault()}
                   side="bottom"
                   align="end"
-                  className="bg-white rounded-[6px] p-4 z-50 relative top-2 left-0 text-[13px]"
+                  className="bg-white rounded-[6px] w-fit p-4 z-50 relative top-2 left-0 text-[13px]"
                   style={{
                     boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
-                    width: popoverWidth
                   }}
                 >
                   {
-                    index === 0
+                    !view
                     ?
-                      <HideFieldsConfig fields={fields} hiddenFieldIds={hiddenFieldIds} setHiddenFieldIds={setHiddenFieldIds}/>
+                      <></>
+                    :
+                      index === 0
+                    ?
+                      <HideFieldsConfig viewId={view?.id} fields={fields} hiddenFieldIds={hiddenFieldIds}/>
                     : index === 1 ?
                       <FiltersConfig viewId={view?.id} fields={fields} filters={filters} filterVals={filterVals} changeFilterVal={changeFilterVal} />
                     : index === 3 ?

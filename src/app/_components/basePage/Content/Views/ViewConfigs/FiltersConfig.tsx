@@ -42,7 +42,7 @@ const JoinType = ({ filterId, joinType, isFirst=false } : { filterId: string, jo
   return (
     isFirst
     ?
-      <span className="w-[64px] h-full flex justify-center items-center">Where</span>
+      <span className="w-[56px] h-full flex justify-center items-center">Where</span>
     :
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
@@ -142,10 +142,10 @@ const FiltersConfig = ({viewId, fields, filters, filterVals, changeFilterVal} : 
               return (
                 <div key={index} className="flex flex-row h-8 px-2 gap-2">
                   <JoinType filterId={filter.id} joinType={filter.joinType} isFirst={index === 0}/>
-                  <div className="flex flex-row h-full w-full border-[1px] border-[#e5e5e5] rounded-[3px] border-box">
+                  <div className="flex flex-row h-full w-fit border-[1px] border-[#e5e5e5] rounded-[3px] border-box">
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger asChild>
-                        <div className="flex flex-row flex-1 cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
+                        <div className="flex flex-row w-[130px] max-w-[130px] cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
                           <span className="flex-1 truncate">{currentField?.name}</span>
                           <div className="w-8 h-8 flex justify-center items-center">
                             <DropdownIcon className="text-gray-600 w-4 h-4"/>
@@ -193,7 +193,7 @@ const FiltersConfig = ({viewId, fields, filters, filterVals, changeFilterVal} : 
                     </DropdownMenu.Root>
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger asChild>
-                        <div className="flex flex-row flex-1 cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
+                        <div className="flex flex-row w-[130px] max-w-[130px] cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
                           <span className="flex-1 truncate">{operatorToText(filter.operator, true)}</span>
                           <div className="w-8 h-8 flex justify-center items-center">
                             <DropdownIcon className="text-gray-600 w-4 h-4"/>
@@ -230,7 +230,7 @@ const FiltersConfig = ({viewId, fields, filters, filterVals, changeFilterVal} : 
                         </DropdownMenu.Content>
                       </DropdownMenu.Portal>
                     </DropdownMenu.Root>
-                    <div className="flex flex-row flex-1 py-[2px] gap-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
+                    <div className="flex flex-row w-[130px] max-w-[130px] py-[2px] gap-2 h-full items-center justify-between border-r-[1px] border-[#e5e5e5] border-box">
                       {
                         (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY)
                         ?

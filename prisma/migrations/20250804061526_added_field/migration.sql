@@ -1,0 +1,2 @@
+-- AddForeignKey
+ALTER TABLE "Filter" ADD CONSTRAINT "Filter_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "Field"("id") ON DELETE CASCADE ON UPDATE CASCADE;

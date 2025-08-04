@@ -13,7 +13,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
   View configs stuff
   */
   const { data: viewData, isFetching: fetchingView } = api.base.getView.useQuery({ viewId: currentView?.id ?? "" }, {
-    enabled: !!tableData?.id && !!currentView?.id
+    enabled: !!tableData?.id && !!currentView?.id,
   })
   // End configs stuff
   return (
