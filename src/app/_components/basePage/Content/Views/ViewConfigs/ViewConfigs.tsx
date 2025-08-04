@@ -14,6 +14,7 @@ import HideFieldsConfig from "./HideFieldsConfig";
 import FiltersConfig, { operatorToText } from "./FiltersConfig";
 import { toast } from "react-toastify";
 import { FilterOperator } from "@prisma/client";
+import SortsConfig from "./SortsConfig";
 
 interface ConfigButton {
   Icon: React.ElementType,
@@ -63,6 +64,8 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
     }, 1000)
     setTimer(newTimer)
   }
+  /* Sort fields config */
+  const sorts = view?.sorts
   useEffect(() => {
     if (filters) {
       const newFilterVals = filters.map((filter) => filter.compareVal)
@@ -70,11 +73,12 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
     }
   }, [filters])
   const filterText = activeFilterNames.length > 0 ? `Filtered by ${activeFilterNames[0]}${activeFilterNames.length > 3 ? ` and ${activeFilterNames.length - 1} other fields` : activeFilterNames.length > 1 ? `, ${activeFilterNames.slice(1).join(', ')}` : ''}` : "Filter"
+  const sortText = sorts && sorts.length > 0 ? `Sorted by ${sorts.length} fields` : "Sorted" 
   const buttons: ConfigButton[] = [
     {Icon: HideIcon, bgColor: numHidden > 0 ? "#c4ecff" : undefined, outlineColor: numHidden > 0 ? "#b0d4e5" : undefined, text: numHidden > 0 ? `${numHidden} hidden field${numHidden > 1 ? "s" : ""}` : "Hide fields", popoverWidth: 320},
     {Icon: FilterIcon, bgColor: activeFilterNames.length > 0 ? "#cff5d1" : undefined, outlineColor: activeFilterNames.length > 0 ? "#badcbc" : undefined, text: filterText, popoverWidth: filters && filters.length > 0 ? 540 : 220},
     {Icon: GroupIcon, text: "Group", popoverWidth: 280},
-    {Icon: SortIcon, text: "Sort", popoverWidth: 320},
+    {Icon: SortIcon, bgColor: sorts && sorts.length > 0 ? "#fedfcb" : undefined, outlineColor: sorts && sorts.length > 0 ? "#e4c8b6" : undefined, text: sortText, popoverWidth: sorts && sorts.length > 0 ? 480 : 320},
     {Icon: ColorIcon, text: "Color", popoverWidth: 300},
     {Icon: HeightIcon, popoverWidth: 128},
     {Icon: ShareIcon, text: "Share and sync", size: "12px", popoverWidth: 424},
@@ -85,7 +89,11 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
       {
         buttons.map((buttonInfo, index) => {
           const {Icon, bgColor, outlineColor, text, size, popoverWidth} = buttonInfo
-          const bg = ((index === 0 && numHidden > 0) || (index === 1 && activeFilterNames.length > 0)) ? bgColor : undefined
+          const active = 
+            (index === 0 && numHidden > 0) ||
+            (index === 1 && activeFilterNames.length > 0) ||
+            (index === 3 && sorts && sorts.length > 0)
+          const bg = active ? bgColor : undefined
           const hoverBg = bgColor ?? "#f2f2f2"
           return (
             <Popover.Root
@@ -135,7 +143,7 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
                     : index === 1 ?
                       <FiltersConfig viewId={view?.id} fields={fields} filters={filters} filterVals={filterVals} changeFilterVal={changeFilterVal} />
                     : index === 3 ?
-                      <div>Simple sorting on columns: for text A→Z, Z→A, for numbers, do decreasing or increasing</div>
+                      <SortsConfig viewId={view?.id} fields={fields} sorts={sorts}/>
                     :
                       <></>
                   }

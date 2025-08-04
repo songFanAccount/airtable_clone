@@ -27,7 +27,7 @@ export function operatorToText(op: FilterOperator, inDropdown: boolean): string 
       return "is empty"
   }
 }
-const JoinType = ({ filterId, joinType, isFirst=false } : { filterId: string, joinType: FilterJoinType, isFirst?: boolean }) => {
+const JoinType = ({ filterId, joinType } : { filterId: string, joinType: FilterJoinType }) => {
   const utils = api.useUtils()
   const { mutate: changeJoinType } = api.base.changeFilterJoinType.useMutation({
     onSuccess: async (_) => {
@@ -40,10 +40,6 @@ const JoinType = ({ filterId, joinType, isFirst=false } : { filterId: string, jo
     }
   }
   return (
-    isFirst
-    ?
-      <span className="w-[56px] h-full flex justify-center items-center">Where</span>
-    :
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <div className="flex flex-row min-w-[56px] w-[56px] cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between rounded-[3px] border-[1px] border-[#e5e5e5] border-box">
@@ -141,7 +137,7 @@ const FiltersConfig = ({viewId, fields, filters, filterVals, changeFilterVal} : 
               const operators: FilterOperator[] = currentField?.type === FieldType.Number ? numberOps : textOps
               return (
                 <div key={index} className="flex flex-row h-8 px-2 gap-2">
-                  <JoinType filterId={filter.id} joinType={filter.joinType} isFirst={index === 0}/>
+                  <JoinType filterId={filter.id} joinType={filter.joinType}/>
                   <div className="flex flex-row h-full w-fit border-[1px] border-[#e5e5e5] rounded-[3px] border-box">
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger asChild>

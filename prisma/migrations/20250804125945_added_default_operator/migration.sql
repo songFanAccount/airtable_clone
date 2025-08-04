@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Sort" ALTER COLUMN "operator" SET DEFAULT 'INCREASING';

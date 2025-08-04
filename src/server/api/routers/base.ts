@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, type Field, type Filter } from "@prisma/client"
+import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Field, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 
 function getMockData(fieldName: string, type: FieldType): string {
@@ -379,6 +379,10 @@ export const baseRouter = createTRPCRouter({
             filters: {
               include: {field: true}
             },
+            sorts: {
+              include: {field: true},
+              orderBy: {createdAt: 'asc'}
+            }
           }
         })
         const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
@@ -402,16 +406,23 @@ export const baseRouter = createTRPCRouter({
           filterConditions.push({cells: recordCellsWhereCondition})
         }
         const totalRecordsInView = await tx.record.count({
-          where: {tableId: view.tableId, AND: filterConditions},
+          where: {tableId: view.tableId, OR: filterConditions},
         })
+        // const sortsQuery = view.sorts.map(sort => {
+        //   const field = sort.field
+        //   const sortQuery: Prisma.RecordOrderByWithRelationInput = {}
+        // })
+
         const records = await tx.record.findMany({
-          where: {tableId: view.tableId, AND: filterConditions},
+          where: {tableId: view.tableId, OR: filterConditions},
           include: {
             cells: {
               where: {fieldId: {notIn: view.hiddenFieldIds}},
             }
           },
-          orderBy: {rowNum: 'asc'},
+          orderBy: [
+            {rowNum: 'asc'}
+          ],
           skip: input.skip,
           take: input.take
         })
@@ -602,4 +613,33 @@ export const baseRouter = createTRPCRouter({
     .mutation(async ({ctx, input}) => {
       return ctx.db.filter.delete({where: {id: input.filterId}})
     }),
+  addSort: protectedProcedure
+    .input(z.object({viewId: z.string(), fieldId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.sort.create({data: {
+        viewId: input.viewId,
+        fieldId: input.fieldId,
+      }})
+    }),
+  changeSortField: protectedProcedure
+    .input(z.object({sortId: z.string(), fieldId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.sort.update({
+        where: {id: input.sortId},
+        data: {fieldId: input.fieldId}
+      })
+    }),
+  changeSortOperator: protectedProcedure
+    .input(z.object({sortId: z.string(), operator: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.sort.update({
+        where: {id: input.sortId},
+        data: {operator: input.operator as SortOperator}
+      })
+    }),
+  deleteSort: protectedProcedure
+    .input(z.object({sortId: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.sort.delete({where: {id: input.sortId}})
+    })
 })
