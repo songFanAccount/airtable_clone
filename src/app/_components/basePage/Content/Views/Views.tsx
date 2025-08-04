@@ -12,15 +12,9 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
   /* 
   View configs stuff
   */
- const { data: viewData, isFetching: fetchingView } = api.base.getView.useQuery({ viewId: currentView?.id ?? "" }, {
-   enabled: !!tableData?.id && !!currentView?.id
- })
-  const [viewLoaded, setViewLoaded] = useState<boolean>(false)
-  useEffect(() => {
-    if (viewData) {
-      setViewLoaded(true)
-    }
-  }, [viewData])
+  const { data: viewData, isFetching: fetchingView } = api.base.getView.useQuery({ viewId: currentView?.id ?? "" }, {
+    enabled: !!tableData?.id && !!currentView?.id
+  })
   // End configs stuff
   return (
     <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>

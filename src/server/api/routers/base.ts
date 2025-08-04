@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient } from "@prisma/client"
+import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 
 function getMockData(fieldName: string, type: FieldType): string {
@@ -327,7 +327,14 @@ export const baseRouter = createTRPCRouter({
     .input(z.object({viewId: z.string(), skip: z.number(), take: z.number()}))
     .query(async ({ ctx, input }) => {
       return await ctx.db.$transaction(async (tx) => {
-        const view = await tx.view.findUniqueOrThrow({where: {id: input.viewId}})
+        const view = await tx.view.findUniqueOrThrow({
+          where: {id: input.viewId},
+          include: {
+            filters: true
+          }
+        })
+        const filters: Filter[] = view.filters
+        console.log(filters)
         const totalRecordsInView = await tx.record.count({
           where: {tableId: view.tableId},
         })
@@ -493,6 +500,23 @@ export const baseRouter = createTRPCRouter({
       return ctx.db.filter.update({
         where: {id: input.filterId},
         data: newData
+      })
+    }),
+  changeFilterJoinType: protectedProcedure
+    .input(z.object({filterId: z.string(), newJoinType: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      const newJoinType = input.newJoinType as FilterJoinType
+      return ctx.db.filter.update({
+        where: {id: input.filterId},
+        data: {joinType: newJoinType}
+      })
+    }),
+  changeFilterCompareVal: protectedProcedure
+    .input(z.object({filterId: z.string(), newCompareVal: z.string()}))
+    .mutation(async ({ctx, input}) => {
+      return ctx.db.filter.update({
+        where: {id: input.filterId},
+        data: {compareVal: input.newCompareVal}
       })
     }),
   deleteFilter: protectedProcedure

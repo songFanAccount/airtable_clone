@@ -7,8 +7,9 @@ import type { FieldsData, FilterData } from "../../../BasePage";
 import { api } from "~/trpc/react";
 import { FieldType, FilterJoinType, FilterOperator } from "@prisma/client";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { toastNoFunction } from "~/hooks/helpers";
 
-function operatorToText(op: FilterOperator, inDropdown: boolean): string {
+export function operatorToText(op: FilterOperator, inDropdown: boolean): string {
   switch (op) {
     case FilterOperator.CONTAINS:
       return `contains${inDropdown ? "..." : ""}`
@@ -26,9 +27,57 @@ function operatorToText(op: FilterOperator, inDropdown: boolean): string {
       return "is empty"
   }
 }
-const JoinType = ({ joinType, isFirst=false } : { joinType: FilterJoinType, isFirst?: boolean }) => {
+const JoinType = ({ filterId, joinType, isFirst=false } : { filterId: string, joinType: FilterJoinType, isFirst?: boolean }) => {
+  const utils = api.useUtils()
+  const { mutate: changeJoinType } = api.base.changeFilterJoinType.useMutation({
+    onSuccess: async (_) => {
+      await utils.base.getView.invalidate()
+    }
+  })
+  function onChangeJoinType(newJoinType: FilterJoinType) {
+    if (joinType !== newJoinType) {
+      changeJoinType({filterId, newJoinType})
+    }
+  }
   return (
-    <span className="w-[56px] h-full flex justify-center items-center">{isFirst ? "Where" : joinType.toLowerCase()}</span>
+    isFirst
+    ?
+      <span className="w-[64px] h-full flex justify-center items-center">Where</span>
+    :
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <div className="flex flex-row min-w-[56px] w-[56px] cursor-pointer hover:bg-[#f2f2f2] pl-2 h-full items-center justify-between rounded-[3px] border-[1px] border-[#e5e5e5] border-box">
+            <span className="flex-1">{joinType.toLowerCase()}</span>
+            <div className="w-8 h-8 flex justify-center items-center">
+              <DropdownIcon className="text-gray-600 w-4 h-4"/>
+            </div>
+          </div>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            side="bottom"
+            align="start"
+            className="
+              w-[56px] bg-white rounded-md shadow-lg p-1 z-[51]
+              border border-gray-200 text-[13px]
+            "
+          >
+            {
+              Object.values(FilterJoinType).map((type, index) => {
+                return (
+                  <DropdownMenu.Item
+                    key={index}
+                    className="flex flex-row h-8 items-center p-1 cursor-pointer outline-none hover:bg-[#f2f2f2] rounded-[3px]"
+                    onClick={() => onChangeJoinType(type)}
+                  >
+                    <span>{type.toLowerCase()}</span>
+                  </DropdownMenu.Item>
+                )
+              })
+            }
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
   )
 }
 
@@ -36,12 +85,11 @@ interface Props {
   viewId?: string,
   fields: FieldsData,
   filters?: FilterData[],
-  setFilters: (newFilters?: FilterData[]) => void,
   filterVals?: string[],
-  setFilterVals: (vals?: string[]) => void
+  changeFilterVal: (i: number, newVal: string) => void
 }
 
-const FiltersConfig = ({viewId, fields, filters, setFilters, filterVals, setFilterVals} : Props) => {
+const FiltersConfig = ({viewId, fields, filters, filterVals, changeFilterVal} : Props) => {
   const utils = api.useUtils()
   const { mutate: addFilter } = api.base.addFilter.useMutation({
     onSuccess: async (createdFilter) => {
@@ -93,7 +141,7 @@ const FiltersConfig = ({viewId, fields, filters, setFilters, filterVals, setFilt
               const operators: FilterOperator[] = currentField?.type === FieldType.Number ? numberOps : textOps
               return (
                 <div key={index} className="flex flex-row h-8 px-2 gap-2">
-                  <JoinType joinType={filter.joinType} isFirst={index === 0}/>
+                  <JoinType filterId={filter.id} joinType={filter.joinType} isFirst={index === 0}/>
                   <div className="flex flex-row h-full w-full border-[1px] border-[#e5e5e5] rounded-[3px] border-box">
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger asChild>
@@ -188,24 +236,22 @@ const FiltersConfig = ({viewId, fields, filters, setFilters, filterVals, setFilt
                         ?
                           <></>
                         :
-                        <input
-                          type={currentField?.type === FieldType.Text ? "text" : "number"}
-                          placeholder="Enter a value"
-                          value={filterVals?.[index] ?? ""}
-                          autoFocus={false}
-                          onChange={(e) => {
-                            if (!filterVals) return
-                            const newVal = e.target.value
-                            const newVals = [...filterVals]
-                            newVals[index] = newVal
-                            setFilterVals(newVals)
-                          }}
-                          className="outline-[0px] h-full w-full px-[6px] focus:outline-[3px] focus:outline-gray-400 rounded-[2px]
-                            [appearance:textfield]
-                            [&::-webkit-outer-spin-button]:appearance-none
-                            [&::-webkit-inner-spin-button]:appearance-none
-                          "
-                        />
+                          <input
+                            type={currentField?.type === FieldType.Text ? "text" : "number"}
+                            placeholder="Enter a value"
+                            value={filterVals?.[index] ?? ""}
+                            autoFocus={false}
+                            onChange={(e) => {
+                              if (!filterVals) return
+                              const newVal = e.target.value
+                              changeFilterVal(index, newVal)
+                            }}
+                            className="outline-[0px] h-full w-full px-[6px] focus:outline-[3px] focus:outline-gray-400 rounded-[2px]
+                              [appearance:textfield]
+                              [&::-webkit-outer-spin-button]:appearance-none
+                              [&::-webkit-inner-spin-button]:appearance-none
+                            "
+                          />
                       }
                     </div>
                     <button className="w-8 h-8 flex justify-center items-center cursor-pointer hover:bg-[#f2f2f2]"
@@ -219,12 +265,20 @@ const FiltersConfig = ({viewId, fields, filters, setFilters, filterVals, setFilt
             })
           }
         </div>
-        <button className="flex flex-row w-fit gap-1 cursor-pointer items-center text-gray-600 group"
-          onClick={onAddFilter}
-        >
-          <AddIcon className="w-[14px] h-[14px] group-hover:text-black"/>
-          <span className="font-[500] group-hover:text-black">Add condition</span>
-        </button>
+        <div className="flex flex-row gap-3 h-[34px]">
+          <button className="flex flex-row h-full w-fit gap-[2px] cursor-pointer items-center text-gray-600 group"
+            onClick={onAddFilter}
+          >
+            <AddIcon className="w-[14px] h-[14px] group-hover:text-black"/>
+            <span className="font-[500] group-hover:text-black">Add condition</span>
+          </button>
+          <button className="flex flex-row h-full w-fit gap-[2px] cursor-pointer items-center text-gray-600 group"
+            onClick={toastNoFunction}
+          >
+            <AddIcon className="w-[14px] h-[14px] group-hover:text-black"/>
+            <span className="font-[500] group-hover:text-black">Add condition group</span>
+          </button>
+        </div>
       </div>
     :
       <div className="flex flex-col gap-4">
