@@ -58,6 +58,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
         endIndex
       })
       setNumFetches(numFetches+1)
+      console.log(recordsObj?.queryStr)
     }
   }, [isFetching, records, startIndex, endIndex])
   function onSelectAll() {

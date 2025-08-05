@@ -94,7 +94,6 @@ export type FieldData = {
 export type FieldsData = FieldData[] | undefined
 export type RecordData = {
   id: string;
-  createdAt: Date;
   tableId: string;
   rowNum: number;
   cells: CellData[]
