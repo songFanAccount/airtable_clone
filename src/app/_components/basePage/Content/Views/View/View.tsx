@@ -1,4 +1,4 @@
-import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData } from "../../../BasePage"
+import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
 import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
@@ -10,7 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
 import { FilterOperator } from "@prisma/client";
 
-const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedData }) => {
+const View = ({ tableData, view, foundIndex, foundCells } : { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex: number, foundCells: CellData[] }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
@@ -58,7 +58,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
         endIndex
       })
       setNumFetches(numFetches+1)
-      console.log(recordsObj?.queryStr)
+      
     }
   }, [isFetching, records, startIndex, endIndex])
   function onSelectAll() {
@@ -161,6 +161,11 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
   }).map(filter => fields?.find(field => filter.fieldId === field.id)?.id ?? "") ?? []
   const activeFilterFieldIds = [...new Set(filtersActive)]
   const sortedFieldIds = view?.sorts.map(sort => sort.fieldId) ?? []
+  const recordMappedFoundCells: Record<string, CellData[]> = {}
+  foundCells.forEach(cell => {
+    if (recordMappedFoundCells.hasOwnProperty(cell.recordId)) recordMappedFoundCells[cell.recordId]?.push(cell)
+    else recordMappedFoundCells[cell.recordId] = [cell]
+  })
   const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
@@ -210,6 +215,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
                           activeFilterFieldIds={activeFilterFieldIds}
                           sortedFieldIds={sortedFieldIds}
                           record={record}
+                          foundCells={recordMappedFoundCells[record.id]}
                           recordSelected={selectedRecords.has(absoluteIndex)}
                           onCheck={() => checkRecord(absoluteIndex, record.id)}
                           rowNum={absoluteIndex + 1}
