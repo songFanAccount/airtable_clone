@@ -160,6 +160,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
     else return filter.compareVal !== ""
   }).map(filter => fields?.find(field => filter.fieldId === field.id)?.id ?? "") ?? []
   const activeFilterFieldIds = [...new Set(filtersActive)]
+  const sortedFieldIds = view?.sorts.map(sort => sort.fieldId) ?? []
   const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
@@ -171,10 +172,11 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
             selectAll={selectAll}
             onCheck={onSelectAll}
             activeFilterFieldIds={activeFilterFieldIds}
+            sortedFieldIds={sortedFieldIds}
           />
         </div>
         <div ref={ref} className="max-h-full overflow-y-auto relative">
-          <div className="flex flex-col w-full relative"
+          <div className="flex flex-row w-full relative"
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
             }}
@@ -206,6 +208,7 @@ const View = ({ tableData, view } : { tableData: TableData, view: ViewDetailedDa
                         <Record
                           fields={includedFields}
                           activeFilterFieldIds={activeFilterFieldIds}
+                          sortedFieldIds={sortedFieldIds}
                           record={record}
                           recordSelected={selectedRecords.has(absoluteIndex)}
                           onCheck={() => checkRecord(absoluteIndex, record.id)}

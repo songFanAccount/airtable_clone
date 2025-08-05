@@ -13,9 +13,9 @@ import { api } from "~/trpc/react";
 import { toastTODO } from "~/hooks/helpers";
 import { toast } from "react-toastify";
 
-const FieldCell = ({ field, isFirst, onlyField, isFiltered } : { field : FieldData, isFirst: boolean, onlyField: boolean, isFiltered: boolean }) => {
-  const bg = isFiltered ? "#f9fef9" : "white"
-  const hoverBg = isFiltered ? "#f9fef9" : "#f8f8f8"
+const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { field : FieldData, isFirst: boolean, onlyField: boolean, isFiltered: boolean, isSortedBy: boolean }) => {
+  const bg = isFiltered ? "#f9fef9" : isSortedBy ? "#fcf9f8" : "white"
+  const hoverBg = isFiltered ? "#f9fef9" : isSortedBy ? "#fcf9f8" : "#f8f8f8"
   const [fieldHovered, setFieldHovered] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [isRenaming] = useState<boolean>(false)
@@ -26,7 +26,8 @@ const FieldCell = ({ field, isFirst, onlyField, isFiltered } : { field : FieldDa
     onSuccess: async () => {
       toast.success(`Deleted field!"`)
       await utils.base.getAllFromBase.invalidate()
-      await utils.base.getRecords.invalidate()
+      if (isFiltered || isSortedBy) await utils.base.getView.invalidate()
+      else await utils.base.getRecords.invalidate()
     }
   })
   function onDeleteField() {
@@ -106,7 +107,7 @@ const FieldCell = ({ field, isFirst, onlyField, isFiltered } : { field : FieldDa
     </Popover.Root>
   )
 }
-const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void, activeFilterFieldIds: string[] }) => {
+const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
   const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
   const [newFieldName, setNewFieldName] = useState<string>("")
@@ -172,7 +173,7 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterField
         </div>
       </div>
       {
-        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0} onlyField={fields.length === 1} isFiltered={activeFilterFieldIds.includes(field.id)}/>)
+        fields?.map((field, index) => <FieldCell key={index} field={field} isFirst={index === 0} onlyField={fields.length === 1} isFiltered={activeFilterFieldIds.includes(field.id)} isSortedBy={sortedFieldIds.includes(field.id)}/>)
       }
       <Popover.Root
         open={createOpen}

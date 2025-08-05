@@ -18,13 +18,14 @@ interface CellProps {
   isSelected: boolean, 
   isSelectedRow: boolean,
   isFiltered: boolean,
+  isSortedBy: boolean,
   onClick: () => void, 
   onCellChange: (cellId: string, newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const value = cell?.value
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
@@ -72,8 +73,13 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRo
       <Popover.Anchor asChild>
         <div className="relative flex flex-row justify-between items-center hover:[background-color:var(--hover-color)!important] w-[180px] h-full"
           style={{
-            backgroundColor: isFiltered ? isSelectedRow ? "#e2f1e3" : "#ebfbec" : isSelected ? "white" : undefined,
-            '--hover-color': isFiltered ? "#e2f1e3" : undefined,
+            backgroundColor:
+              isFiltered
+                ? isSelectedRow ? "#e2f1e3" : "#ebfbec"
+                : isSortedBy
+                  ? isSelectedRow ? "#f5e9e1" : "#fff2ea"
+                  : isSelected ? "white" : undefined,
+            '--hover-color': isFiltered ? "#e2f1e3" : isSortedBy ? "#f5e9e1" : undefined,
             borderRight: 
               isSelected 
               ?
@@ -152,6 +158,7 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRo
 interface RecordProps {
   fields: FieldsData,
   activeFilterFieldIds: string[],
+  sortedFieldIds: string[],
   record: RecordData, 
   recordSelected: boolean, 
   onCheck: () => void, 
@@ -161,7 +168,7 @@ interface RecordProps {
   multipleRecordsSelected: boolean,
   onDeleteRecord: () => void
 }
-const Record = ({ fields, activeFilterFieldIds, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
+const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSelected, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const { cells } = record
   const [recordData, setRecordData] = useState<CellData[]>(cells)
   useEffect(() => {
@@ -174,7 +181,7 @@ const Record = ({ fields, activeFilterFieldIds, record, recordSelected, onCheck,
   const utils = api.useUtils()
   const { mutate: updateCell } = api.base.updateCell.useMutation({
     onSuccess: async (updatedCell) => {
-      if (activeFilterFieldIds.includes(updatedCell.fieldId)) {
+      if (activeFilterFieldIds.includes(updatedCell.fieldId) || sortedFieldIds.includes(updatedCell.fieldId)) {
         await utils.base.getRecords.invalidate()
       }
     }
@@ -234,6 +241,7 @@ const Record = ({ fields, activeFilterFieldIds, record, recordSelected, onCheck,
         <Cell 
           key={index}
           isFiltered={activeFilterFieldIds.includes(field.id)}
+          isSortedBy={sortedFieldIds.includes(field.id)}
           cell={recordData?.find(cell => cell.fieldId === field.id)}
           field={field}
           mainSelectedCell={mainSelectedCell} 
