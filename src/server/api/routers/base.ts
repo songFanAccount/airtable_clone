@@ -484,18 +484,11 @@ export const baseRouter = createTRPCRouter({
         })
         const tableId = view.tableId
         const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
-        const fieldFilters: Record<string, FilterWithField[]> = {}
-        filters.forEach((filter) => {
-          if (Object.keys(fieldFilters).includes(filter.fieldId)) fieldFilters[filter.fieldId]?.push(filter)
-          else fieldFilters[filter.fieldId] = [filter]
-        })
         const andStrs: string[] = []
         const orStrs: string[] = []
-        for (const filters of Object.values(fieldFilters)) {
-          for (const filter of filters) {
-            if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
-            else orStrs.push(generateCellCondStr(filter))
-          }
+        for (const filter of filters) {
+          if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
+          else orStrs.push(generateCellCondStr(filter))
         }
         const andClause = andStrs.length
           ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
@@ -513,13 +506,30 @@ export const baseRouter = createTRPCRouter({
             OR
             (r."tableId" = '${tableId}' AND (${orClause}))
           `;
-        } else if (andStrs.length) {
-          filtersStr = `r."tableId" = '${tableId}' AND (${andClause})`;
-        } else if (orStrs.length) {
-          filtersStr = `r."tableId" = '${tableId}' AND (${orClause})`;
         } else {
-          filtersStr = `r."tableId" = '${tableId}'`;
+          filtersStr = andStrs.length 
+            ? `r."tableId" = '${tableId}' AND (${andClause})`
+            :
+              orStrs.length
+              ? `r."tableId" = '${tableId}' AND (${orClause})`
+              : `r."tableId" = '${tableId}'`
         }
+        const sorts = view.sorts
+        const sortClauses = sorts.map(
+          sort => `
+            (
+              SELECT ${sort.field.type === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
+              FROM "Cell" fc
+              WHERE fc."recordId" = r.id
+                AND fc."fieldId" = '${sort.fieldId}'
+              LIMIT 1
+            ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
+          `
+        );
+        
+        const orderByClause = sortClauses.length
+          ? sortClauses.join(', ')
+          : 'r."rowNum" ASC';
 
         const countQueryStr = `
           SELECT COUNT(DISTINCT r.id) AS total_records
@@ -550,7 +560,7 @@ export const baseRouter = createTRPCRouter({
           INNER JOIN "Field" f ON c."fieldId" = f.id
           WHERE ${filtersStr}
           GROUP BY r.id, r."rowNum", r."tableId"
-          ORDER BY r."rowNum"
+          ORDER BY ${orderByClause}
           LIMIT ${input.take}
           OFFSET ${input.skip};
         `;
@@ -596,7 +606,7 @@ export const baseRouter = createTRPCRouter({
           records,
           queryStr,
         }
-      })
+      }, {maxWait: 200000, timeout: 600000})
     }),
   addXRecords: protectedProcedure
     .input(z.object({tableId: z.string(), numRecords: z.number()}))

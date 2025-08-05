@@ -171,7 +171,14 @@ const Record = ({ fields, activeFilterFieldIds, record, recordSelected, onCheck,
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const active = isHovered || isSelectedRow || recordSelected
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
-  const { mutate: updateCell } = api.base.updateCell.useMutation()
+  const utils = api.useUtils()
+  const { mutate: updateCell } = api.base.updateCell.useMutation({
+    onSuccess: async (updatedCell) => {
+      if (activeFilterFieldIds.includes(updatedCell.fieldId)) {
+        await utils.base.getRecords.invalidate()
+      }
+    }
+  })
   function onRecordChange(cellId: string, newValue: string, type: FieldType) {
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
