@@ -20,13 +20,14 @@ interface CellProps {
   isFiltered: boolean,
   isSortedBy: boolean,
   isSearchFound: boolean,
+  isSearchSelected: boolean,
   onClick: () => void, 
   onCellChange: (cellId: string, newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const value = cell?.value
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
@@ -75,13 +76,15 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRo
         <div className="relative flex flex-row justify-between items-center hover:[background-color:var(--hover-color)!important] w-[180px] h-full"
           style={{
             backgroundColor:
-              isSearchFound
-              ? "#fff3d3"
-              : isFiltered
-                ? isSelectedRow ? "#e2f1e3" : "#ebfbec"
-                : isSortedBy
-                  ? isSelectedRow ? "#f5e9e1" : "#fff2ea"
-                  : isSelected ? "white" : undefined,
+              isSearchSelected
+              ? "#ffd66b"
+              : isSearchFound
+                ? "#fff3d3"
+                : isFiltered
+                  ? isSelectedRow ? "#e2f1e3" : "#ebfbec"
+                  : isSortedBy
+                    ? isSelectedRow ? "#f5e9e1" : "#fff2ea"
+                    : isSelected ? "white" : undefined,
             '--hover-color': isFiltered ? "#e2f1e3" : isSortedBy ? "#f5e9e1" : undefined,
             borderRight: 
               isSelected 
@@ -166,13 +169,14 @@ interface RecordProps {
   recordSelected: boolean, 
   onCheck: () => void, 
   foundCells?: CellData[],
+  currentCell?: CellData,
   rowNum: number, 
   mainSelectedCell?: [number, number], 
   setMainSelectedCell: (cell?: [number,number]) => void,
   multipleRecordsSelected: boolean,
   onDeleteRecord: () => void
 }
-const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSelected, foundCells, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
+const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSelected, foundCells, currentCell, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const { cells } = record
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
   const [recordData, setRecordData] = useState<CellData[]>(cells)
@@ -248,6 +252,7 @@ const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSe
           isFiltered={activeFilterFieldIds.includes(field.id)}
           isSortedBy={sortedFieldIds.includes(field.id)}
           isSearchFound={foundFieldIds?.includes(field.id) === true}
+          isSearchSelected={currentCell !== undefined && currentCell.recordId === record.id && currentCell.fieldId === field.id}
           cell={recordData?.find(cell => cell.fieldId === field.id)}
           field={field}
           mainSelectedCell={mainSelectedCell} 

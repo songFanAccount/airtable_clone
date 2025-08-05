@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import type { CellData, TableData, ViewData, ViewsData } from "../../BasePage"
+import type { RecordsData, TableData, ViewData, ViewsData } from "../../BasePage"
 import Header from "./Header"
 import SlidingSidebar from "./SlidingSidebar"
 import View from "./View/View"
@@ -22,15 +22,16 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
     enabled: !!tableData?.id && !!currentView?.id && searchStr.trim() !== ""
   })
   const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null)
-  const [foundIndex, setFoundIndex] = useState<number>(0)
+  const [foundIndex, setFoundIndex] = useState<number | undefined>(undefined)
   function moveFoundIndex(direction: 1 | -1) {
-    const numFoundCells = foundCells.length
+    if (foundIndex === undefined) return
     let newFoundIndex = foundIndex + direction
     if (newFoundIndex < 0) newFoundIndex = numFoundCells - 1
     else if (newFoundIndex >= numFoundCells) newFoundIndex = 0
     setFoundIndex(newFoundIndex)
   }
-  const [foundCells, setFoundCells] = useState<CellData[]>([])
+  const [foundRecords, setFoundRecords] = useState<RecordsData>([])
+  const [numFoundCells, setNumFoundCells] = useState<number>(0)
   useEffect(() => {
     const trimmed = searchStr.trim()
     if (trimmed !== "") {
@@ -39,18 +40,25 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
         void utils.base.searchInView.invalidate()
       }, 1000)
       setSearchTimer(newTimer)
+    } else {
+      setFoundRecords([])
+      setNumFoundCells(0)
+      setFoundIndex(undefined)
     }
   }, [searchStr])
   useEffect(() => {
-    if (!searching) {
-      console.log(searchData?.cells)
-      setFoundCells(searchData?.cells ?? [])
+    if (!searching && searchData) {
+      setFoundRecords(searchData.records)
+      let numCells = 0
+      searchData.records.forEach(record => numCells += record.cells?.length ?? 0)
+      setNumFoundCells(numCells)
+      setFoundIndex(0)
     }
   }, [searching])
   return (
     <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
       <div className="h-full w-full flex flex-col">
-        <Header viewData={viewData} fields={tableData?.fields} searchStr={searchStr} setSearchStr={setSearchStr} foundIndex={foundIndex} numSearchFound={foundCells.length} moveFoundIndex={moveFoundIndex}/>
+        <Header viewData={viewData} fields={tableData?.fields} searchStr={searchStr} setSearchStr={setSearchStr} foundIndex={foundIndex ?? 0} numSearchFound={numFoundCells} moveFoundIndex={moveFoundIndex}/>
         <div className="h-full w-full flex flex-row relative">
           <Dialog.Content onOpenAutoFocus={(e) => e.preventDefault()} className="w-[279px] border-r-[1px] border-box px-2 py-[10px] flex-shrink-0"
             style={{
@@ -64,7 +72,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
             </VisuallyHidden>
             <SlidingSidebar views={views} currentView={currentView} navToView={navToView}/>
           </Dialog.Content>
-          {viewData && <View tableData={tableData} view={viewData} searchStr={searchStr} foundIndex={foundIndex} foundCells={foundCells}/>}
+          {viewData && <View tableData={tableData} view={viewData} searchStr={searchStr} foundIndex={foundIndex} foundRecords={foundRecords}/>}
         </div>
       </div>
     </Dialog.Root>

@@ -1,4 +1,4 @@
-import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData } from "../../../BasePage"
+import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
 import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
@@ -10,7 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
 import { FilterOperator } from "@prisma/client";
 
-const View = ({ tableData, view, foundIndex, foundCells } : { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex: number, foundCells: CellData[] }) => {
+const View = ({ tableData, view, foundIndex, foundRecords } : { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
@@ -161,11 +161,70 @@ const View = ({ tableData, view, foundIndex, foundCells } : { tableData: TableDa
   }).map(filter => fields?.find(field => filter.fieldId === field.id)?.id ?? "") ?? []
   const activeFilterFieldIds = [...new Set(filtersActive)]
   const sortedFieldIds = view?.sorts.map(sort => sort.fieldId) ?? []
-  const recordMappedFoundCells: Record<string, CellData[]> = {}
-  foundCells.forEach(cell => {
-    if (recordMappedFoundCells.hasOwnProperty(cell.recordId)) recordMappedFoundCells[cell.recordId]?.push(cell)
-    else recordMappedFoundCells[cell.recordId] = [cell]
-  })
+  const currentCellRef = useRef<{recordIndex: number, record: RecordData, cellIndex: number, lastFoundIndex: number} | undefined>(undefined)
+  const [currentCell, setCurrentCell] = useState<CellData | undefined>(undefined)
+  useEffect(() => {
+    if (foundIndex !== undefined) {
+      if (currentCellRef.current && foundRecords) {
+        const {recordIndex, record, cellIndex, lastFoundIndex} = currentCellRef.current
+        const direction = foundIndex - lastFoundIndex
+        if (direction === 1 || direction === -1) {
+          const newCellIndex = cellIndex + direction
+          if (newCellIndex >= record.cells.length || newCellIndex < 0) {
+            let newRecordIndex = recordIndex+direction
+            while (foundRecords[newRecordIndex]?.cells === null) {
+              newRecordIndex += direction
+            }
+            const newRecord = foundRecords[newRecordIndex]
+            if (newRecord) {
+              const newRecordCellIndex = direction === 1 ? 0 : newRecord.cells.length - 1
+              setCurrentCell(newRecord.cells?.[newRecordCellIndex])
+              currentCellRef.current = {recordIndex: newRecordIndex, record: newRecord, cellIndex: newRecordCellIndex, lastFoundIndex: foundIndex}
+            }
+          } else {
+            setCurrentCell(record.cells[newCellIndex])
+            currentCellRef.current = {...currentCellRef.current, cellIndex: newCellIndex, lastFoundIndex: foundIndex}
+          }
+        } else if (lastFoundIndex === 0 || (foundIndex === 0 && lastFoundIndex !== 1)) {
+          for (let i = 0; i < foundRecords.length; i++) {
+            const currentI = lastFoundIndex === 0 ? foundRecords.length - 1 - i : i
+            const currentRecord = foundRecords[currentI]
+            if (currentRecord?.cells) {
+              const newCellIndex = lastFoundIndex === 0 ? currentRecord.cells.length - 1 : 0
+              setCurrentCell(currentRecord.cells[newCellIndex])
+              currentCellRef.current = {recordIndex: currentI, record: currentRecord, cellIndex: newCellIndex, lastFoundIndex: foundIndex}
+              break
+            }
+          }
+        }
+      } else {
+        if (foundRecords) {
+          let cellIndex = 0
+          for (let i = 0; i < foundRecords.length; i++) {
+            const record = foundRecords[i]
+            if (!record) continue
+            const numCells = record.cells?.length ?? 0
+            const nextRecordStartIndex = cellIndex + numCells
+            if (nextRecordStartIndex > foundIndex) {
+              const offset = foundIndex - cellIndex
+              setCurrentCell(record.cells?.[offset])
+              currentCellRef.current = {recordIndex: i, record, cellIndex: offset, lastFoundIndex: foundIndex}
+              break
+            } else {
+              cellIndex = nextRecordStartIndex
+            }
+          }
+        }
+      }
+      if (currentCellRef.current) {
+        const recordsContainer = document.getElementById("view-records")
+        if (recordsContainer) recordsContainer.scrollTop = currentCellRef.current.recordIndex * 32
+      }
+    } else {
+      setCurrentCell(undefined)
+      currentCellRef.current = undefined
+    }
+  }, [foundIndex])
   const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
@@ -180,8 +239,8 @@ const View = ({ tableData, view, foundIndex, foundCells } : { tableData: TableDa
             sortedFieldIds={sortedFieldIds}
           />
         </div>
-        <div ref={ref} className="max-h-full overflow-y-auto relative">
-          <div className="flex flex-row w-full relative"
+        <div ref={ref} id="view-records" className="max-h-full overflow-y-auto relative">
+          <div  className="flex flex-row w-full relative"
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
             }}
@@ -215,7 +274,8 @@ const View = ({ tableData, view, foundIndex, foundCells } : { tableData: TableDa
                           activeFilterFieldIds={activeFilterFieldIds}
                           sortedFieldIds={sortedFieldIds}
                           record={record}
-                          foundCells={recordMappedFoundCells[record.id]}
+                          foundCells={foundRecords?.[absoluteIndex]?.cells}
+                          currentCell={currentCell}
                           recordSelected={selectedRecords.has(absoluteIndex)}
                           onCheck={() => checkRecord(absoluteIndex, record.id)}
                           rowNum={absoluteIndex + 1}

@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Field, type Filter } from "@prisma/client"
+import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 import type { CellData, RecordData } from "~/app/_components/basePage/BasePage";
 
@@ -820,22 +820,130 @@ export const baseRouter = createTRPCRouter({
     }),
   searchInView: protectedProcedure
     .input(z.object({viewId: z.string(), searchStr: z.string()}))
-    .query(async ({ctx, input}) => {
-      return ctx.db.$transaction(async (tx) => {
-        const view = await tx.view.findUniqueOrThrow({where: {id: input.viewId}})
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.$transaction(async (tx) => {
+        const view = await tx.view.findUniqueOrThrow({
+          where: {id: input.viewId},
+          include: {
+            filters: {
+              include: {field: true}
+            },
+            sorts: {
+              include: {field: true},
+              orderBy: {createdAt: 'asc'}
+            }
+          }
+        })
+        const tableId = view.tableId
+        const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
+        const andStrs: string[] = []
+        const orStrs: string[] = []
+        for (const filter of filters) {
+          if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
+          else orStrs.push(generateCellCondStr(filter))
+        }
+        const andClause = andStrs.length
+          ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
+          : "TRUE";
+
+        const orClause = orStrs.length
+          ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
+          : "";
+
+        let filtersStr = "";
+
+        if (andStrs.length && orStrs.length) {
+          filtersStr = `
+            (r."tableId" = '${tableId}' AND (${andClause}))
+            OR
+            (r."tableId" = '${tableId}' AND (${orClause}))
+          `;
+        } else {
+          filtersStr = andStrs.length 
+            ? `r."tableId" = '${tableId}' AND (${andClause})`
+            :
+              orStrs.length
+              ? `r."tableId" = '${tableId}' AND (${orClause})`
+              : `r."tableId" = '${tableId}'`
+        }
+        const sorts = view.sorts
+        const sortClauses = sorts.map(
+          sort => `
+            (
+              SELECT ${sort.field.type === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
+              FROM "Cell" fc
+              WHERE fc."recordId" = r.id
+                AND fc."fieldId" = '${sort.fieldId}'
+              LIMIT 1
+            ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
+          `
+        );
+        
+        const orderByClause = sortClauses.length
+          ? sortClauses.join(', ')
+          : 'r."rowNum" ASC';
+
         const queryStr = `
           SELECT
-            c.id AS id,
-            c."recordId" AS "recordId",
-            c."fieldId" AS "fieldId"
-          FROM "Cell" c
-          INNER JOIN "Record" r ON c."recordId" = r.id
-          WHERE r."tableId" = '${view.tableId}' AND c."value" LIKE CONCAT('%', '${input.searchStr}', '%')
-        `
-        const cells = await tx.$queryRawUnsafe<CellData[]>(queryStr)
+            r.id AS id,
+            r."tableId" AS "tableId",
+            r."rowNum" AS "rowNum",
+            json_agg(
+              json_build_object(
+                'id', c.id,
+                'value', c.value,
+                'fieldId', f.id,
+                'recordId', r.id
+              ) ORDER BY f."columnNumber"
+            ) FILTER (WHERE c."value" ILIKE CONCAT('%', '${input.searchStr}', '%'))
+            AS cells
+          FROM "Record" r
+          LEFT JOIN "Cell" c ON r.id = c."recordId"
+          LEFT JOIN "Field" f ON c."fieldId" = f.id
+          WHERE ${filtersStr}
+          GROUP BY r.id, r."rowNum", r."tableId"
+          ORDER BY ${orderByClause};
+        `;
+        const records = await tx.$queryRawUnsafe<RecordData[]>(queryStr);
+        
+        // const filterConditions: Prisma.RecordWhereInput[] = []
+        // for (const [fieldId, filters] of Object.entries(fieldFilters)) {
+        //   if (!filters[0]) continue
+        //   const andConditions: Prisma.CellWhereInput[] = []
+        //   const orConditions: Prisma.CellWhereInput[] = []
+        //   const someCondition: Prisma.CellWhereInput = {fieldId}
+        //   for (const filter of filters) {
+        //     if (filter.joinType === FilterJoinType.AND) andConditions.push(generateCellWhereCondition(filter))
+        //     else orConditions.push(generateCellWhereCondition(filter))
+        //   }
+        //   someCondition.OR = [{AND: andConditions}, {OR: orConditions}]
+        //   const recordCellsWhereCondition: Prisma.CellListRelationFilter = {some: someCondition}
+        //   filterConditions.push({cells: recordCellsWhereCondition})
+        // }
+        // const whereCond: Prisma.RecordWhereInput = {tableId: view.tableId}
+        // if (filters.length > 0) whereCond.OR = filterConditions
+        // const totalRecordsInView = await tx.record.count({
+        //   where: whereCond,
+        // })
+
+        // const records = await tx.record.findMany({
+        //   where: whereCond,
+        //   include: {
+        //     cells: {
+        //       where: {fieldId: {notIn: view.hiddenFieldIds}},
+        //       include: {field: true}
+        //     }
+        //   },
+        //   orderBy: [
+        //     {rowNum: 'asc'},
+            
+        //   ],
+        //   skip: input.skip,
+        //   take: input.take
+        // })
         return {
-          cells
+          records,
         }
-      })
-    })
+      }, {maxWait: 200000, timeout: 600000})
+    }),
 })
