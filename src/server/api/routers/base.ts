@@ -247,99 +247,11 @@ export const baseRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({name: z.string()}))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.$transaction(async (tx) => {
-        const base = await tx.base.create({
-          data: {
-            name: input.name,
-            userId: ctx.session.user.id
-          }
-        })
-        let newTable = await tx.table.create({
-          data: {
-            name: "Table 1",
-            baseId: base.id
-          }
-        })
-        await tx.base.update({
-          where: {id: base.id},
-          data: {lastOpenedTableId: newTable.id}
-        })
-        /* 
-        Create default fields
-        */
-        interface FieldProps {
-          name: string,
-          type: FieldType,
-          id?: string
-        }
-        const defaultFields: FieldProps[] = [
-          {name: "Name", type: FieldType.Text},
-          {name: "Address", type: FieldType.Text},
-          {name: "Age", type: FieldType.Number},
-          {name: "Rank", type: FieldType.Number},
-          {name: "Note", type: FieldType.Text},
-        ]
-        for (const [index, fieldProps] of defaultFields.entries()) {
-          const { name, type } = fieldProps;
-          const newField = await tx.field.create({
-            data: {
-              name,
-              type,
-              tableId: newTable.id,
-              columnNumber: index + 1
-            }
-          });
-          if (defaultFields[index]) defaultFields[index].id = newField.id
-        }
-        for (let i = 1; i <= 3; i++) {
-          const record = await tx.record.create({data: {
-            rowNum: i,
-            tableId: newTable.id,
-          }})
-          for (const fieldProps of defaultFields) {
-            const fieldId = fieldProps.id
-            if (!fieldId) continue
-            const mockDataStr = getMockData(fieldProps.name, fieldProps.type)
-            await tx.cell.create({data: {
-              recordId: record.id,
-              fieldId,
-              value: mockDataStr,
-              numValue: fieldProps.type === FieldType.Number ? Number(mockDataStr) : undefined
-            }})
-          }
-        }
-        const defaultView = await tx.view.create({
-          data: {
-            name: "Grid view",
-            tableId: newTable.id,
-            hiddenFieldIds: []
-          }
-        })
-        newTable = await tx.table.update({
-          where: {
-            id: newTable.id
-          },
-          data: {
-            lastOpenedViewId: defaultView.id,
-            recordCount: 3,
-            lastAddedRecordPos: 3
-          }
-        })
-        await tx.base.update({
-          where: { id: base.id },
-          data: { lastOpenedTableId: newTable.id }
-        })
-        return await tx.base.findUnique({
-          where: { id: base.id },
-          include: {
-            tables: {
-              include: {
-                views: true,
-              },
-            },
-          },
-        })
-      })
+      const tx = ctx.db;
+      const base = await tx.base.create({ data: { name: input.name, userId: ctx.session.user.id } });
+      const table = await createTable(ctx.db, "Table 1", base.id);
+      await tx.base.update({ where: { id: base.id }, data: { lastOpenedTableId: table.id } });
+      return tx.base.findUnique({ where: { id: base.id }, include: { tables: { include: { views: true } } } });
     }),
   getAll: protectedProcedure
     .query(async ({ ctx }) => {
@@ -410,9 +322,7 @@ export const baseRouter = createTRPCRouter({
   addNewTable: protectedProcedure
     .input(z.object({baseId: z.string(), newName: z.string()}))
     .mutation(async ({ctx, input}) => {
-      return ctx.db.$transaction(async (tx) => {
-        return createTable(tx, input.newName, input.baseId)
-      })
+      return createTable(ctx.db, input.newName, input.baseId)
     }),
   deleteTable: protectedProcedure
     .input(z.object({baseId: z.string(), tableId: z.string(), fallbackTableId: z.string()}))
