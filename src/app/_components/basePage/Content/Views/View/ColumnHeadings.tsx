@@ -107,7 +107,7 @@ const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { fie
     </Popover.Root>
   )
 }
-const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: () => void, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
+const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: (checked: boolean | "indeterminate") => void, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
   const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
   const [newFieldName, setNewFieldName] = useState<string>("")

@@ -6,10 +6,12 @@ import { CheckIcon } from "@radix-ui/react-icons";
 import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
+import type { Row } from '@tanstack/react-table';
 
 function isNumber(str: string): boolean {
   return /^[0-9]+(\.[0-9]+)?$/.test(str);
 }
+
 interface CellProps {
   cell?: CellData, 
   field: FieldData,
@@ -27,7 +29,8 @@ interface CellProps {
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
-const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+
+const CellComp = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const value = cell?.value
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
@@ -162,12 +165,10 @@ const Cell = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRo
 }
 
 interface RecordProps {
+  row: Row<RecordData>, 
   fields: FieldsData,
   activeFilterFieldIds: string[],
   sortedFieldIds: string[],
-  record: RecordData, 
-  recordSelected: boolean, 
-  onCheck: () => void, 
   foundCells?: CellData[],
   currentCell?: CellData,
   rowNum: number, 
@@ -176,16 +177,16 @@ interface RecordProps {
   multipleRecordsSelected: boolean,
   onDeleteRecord: () => void
 }
-const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSelected, foundCells, currentCell, onCheck, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
-  const { cells } = record
+
+const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
-  const [recordData, setRecordData] = useState<CellData[]>(cells)
+  const [recordData, setRecordData] = useState<CellData[]>(row.original.cells)
   useEffect(() => {
-    setRecordData(cells)
-  }, [cells])
-  const isSelectedRow = mainSelectedCell !== undefined && mainSelectedCell[0] === rowNum - 1
+    setRecordData(row.original.cells)
+  }, [row.original.cells])
+  const isSelectedRow = row.getIsSelected()
   const [isHovered, setIsHovered] = useState<boolean>(false)
-  const active = isHovered || isSelectedRow || recordSelected
+  const active = isHovered || isSelectedRow
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
   const utils = api.useUtils()
   const { mutate: updateCell } = api.base.updateCell.useMutation({
@@ -196,6 +197,11 @@ const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSe
     }
   })
   function onRecordChange(cellId: string, newValue: string, type: FieldType) {
+    setRecordData(prev =>
+      prev.map(cell =>
+        cell.id === cellId ? { ...cell, value: newValue } : cell
+      )
+    );
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
       updateCell({cellId, newValue, type})
@@ -203,8 +209,8 @@ const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSe
     setTimer(newTimer)
   }
   function onTab(direction: -1 | 1) {
-    if (mainSelectedCell) {
-      const numFields = cells.length
+    if (mainSelectedCell && fields) {
+      const numFields = fields.length
       const colIndex = mainSelectedCell[1]
       const canMove = direction === 1 ? colIndex < numFields - 1 : colIndex > 0
       if (canMove) setMainSelectedCell([mainSelectedCell[0], colIndex + direction])
@@ -221,52 +227,56 @@ const Record = ({ fields, activeFilterFieldIds, sortedFieldIds, record, recordSe
     >
       <div className="w-[87px] h-full flex flex-row items-center pl-4 bg-white"
         style={{
-          backgroundColor: active ? "#f8f8f8" : undefined
+          backgroundColor: foundCells?.length ? "#fff3d3" : active ? "#f8f8f8" : undefined
         }}
       >
-        <div className="flex items-center space-x-2">
-          {
-            active
-            ?
+        {
+          active
+          ?
+            <div className="flex items-center space-x-2">
               <Checkbox.Root
-                id="c1"
+                id={`checkbox-${row.id}`}
                 className="w-4 h-4 mx-2 rounded border border-gray-300 flex items-center justify-center
                 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                checked={recordSelected}
-                onCheckedChange={onCheck}
-              >
+                checked={row.getIsSelected()}
+                onCheckedChange={row.getToggleSelectedHandler()}
+                >
                 <Checkbox.Indicator>
                   <CheckIcon className="text-white w-4 h-4" />
                 </Checkbox.Indicator>
               </Checkbox.Root>
-            :
-              <div className="w-4 h-4 flex justify-center items-center text-gray-600 mx-2">
-                <span>{rowNum}</span>
-              </div>
-          }
-        </div>
+            </div>
+          :
+            <div className="w-4 h-4 flex justify-center items-center text-gray-600 mx-2">
+              <span>{rowNum}</span>
+            </div>
+        }
       </div>
-      {fields?.map((field, index) => 
-        <Cell 
-          key={index}
-          isFiltered={activeFilterFieldIds.includes(field.id)}
-          isSortedBy={sortedFieldIds.includes(field.id)}
-          isSearchFound={foundFieldIds?.includes(field.id) === true}
-          isSearchSelected={currentCell !== undefined && currentCell.recordId === record.id && currentCell.fieldId === field.id}
-          cell={recordData?.find(cell => cell.fieldId === field.id)}
-          field={field}
-          mainSelectedCell={mainSelectedCell} 
-          isFirst={index === 0}
-          isSelected={isSelectedRow && mainSelectedCell[1] === index}
-          isSelectedRow={isSelectedRow}
-          onClick={() => setMainSelectedCell([rowNum-1, index])}
-          onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue, field.type)}
-          multipleRecordsSelected={multipleRecordsSelected}
-          onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
-          onTab={onTab}
-        />
-      )}
+      {fields?.map((field, index) => {
+        const cellData = recordData.find(cell => cell.fieldId === field.id)
+        return (
+          <CellComp 
+            key={index}
+            isFiltered={activeFilterFieldIds.includes(field.id)}
+            isSortedBy={sortedFieldIds.includes(field.id)}
+            isSearchFound={foundFieldIds?.includes(field.id) === true}
+            isSearchSelected={currentCell?.recordId === row.original.id && currentCell?.fieldId === field.id}
+            cell={cellData}
+            field={field}
+            mainSelectedCell={mainSelectedCell} 
+            isFirst={index === 0}
+            isSelected={mainSelectedCell?.[0] === rowNum - 1 && mainSelectedCell?.[1] === index}
+            isSelectedRow={active}
+            onClick={() => setMainSelectedCell([rowNum-1, index])}
+            onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue, field.type)}
+            multipleRecordsSelected={multipleRecordsSelected}
+            onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
+            onTab={onTab}
+          />
+        )
+      })}
     </div>
   )
 }
+
 export default Record

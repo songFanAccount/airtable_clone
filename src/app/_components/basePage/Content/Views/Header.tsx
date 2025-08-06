@@ -1,5 +1,6 @@
 import type { FieldsData, ViewDetailedData } from "../../BasePage"
 import { IoMdMenu as MenuIcon } from "react-icons/io";
+import { Loader2 as LoadingIcon } from "lucide-react";
 import { MdOutlineTableChart as TableIcon } from "react-icons/md";
 import { MdKeyboardArrowDown as DropdownIcon } from "react-icons/md";
 import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
@@ -10,14 +11,15 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Popover from "@radix-ui/react-popover";
 import { toast } from "react-toastify";
 
-interface SearchProps { 
+interface SearchProps {
+  searching: boolean,
   searchStr: string, 
   setSearchStr: (str: string) => void,
   foundIndex: number,
   numSearchFound: number,
   moveFoundIndex: (direction: 1 | -1) => void
 }
-const ViewSearch = ({ searchStr, setSearchStr, foundIndex, numSearchFound, moveFoundIndex } : SearchProps) => {
+const ViewSearch = ({ searching, searchStr, setSearchStr, foundIndex, numSearchFound, moveFoundIndex } : SearchProps) => {
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
@@ -27,7 +29,6 @@ const ViewSearch = ({ searchStr, setSearchStr, foundIndex, numSearchFound, moveF
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          onOpenAutoFocus={(e) => e.preventDefault()}
           side="bottom"
           align="start"
           className="bg-white w-fit h-[38px] z-50 text-[13px] overflow-clip
@@ -50,29 +51,40 @@ const ViewSearch = ({ searchStr, setSearchStr, foundIndex, numSearchFound, moveF
               "
             />
             <div className="flex flex-row items-center">
-              {searchStr !== "" &&
-                <span className="text-gray-500 text-[11px]">{`${numSearchFound > 0 ? foundIndex+1 : 0} of ${numSearchFound}`}</span>
+              {searching
+                ?
+                  <div className="flex flex-row items-center h-full flex-shrink-0">
+                    <LoadingIcon className="w-4 h-4 animate-spin ml-3"/>
+                  </div>
+                :
+                <div className="flex flex-row items-center">
+                  {searchStr !== "" &&
+                    <span className="text-gray-500 text-[11px]">{`${numSearchFound > 0 ? foundIndex+1 : 0} of ${numSearchFound}`}</span>
+                  }
+                  {numSearchFound > 0 &&
+                    <div className="flex flex-row items-center pl-2">
+                      <button className="flex justify-center items-center cursor-pointer text-gray-600 w-5 h-[22px] bg-[#e5e5e5] hover:bg-[#ededed] rounded-[3px]"
+                        style={{
+                          borderTopRightRadius: 0,
+                          borderBottomRightRadius: 0,
+                        }}
+                        onClick={() => moveFoundIndex(1)}
+                      >
+                        <IncMoveIndexIcon className="w-3 h-3"/>
+                      </button>
+                      <button className="flex justify-center items-center cursor-pointer text-gray-600 w-5 h-[22px] bg-[#e5e5e5] hover:bg-[#ededed] rounded-[3px]"
+                        style={{
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                        }}
+                        onClick={() => moveFoundIndex(-1)}
+                      >
+                        <DecMoveIndexIcon className="w-3 h-3"/>
+                      </button>                 
+                    </div>
+                  }
+                </div>
               }
-              <div className="flex flex-row items-center pl-2">
-                <button className="flex justify-center items-center cursor-pointer text-gray-600 w-5 h-[22px] bg-[#e5e5e5] hover:bg-[#ededed] rounded-[3px]"
-                  style={{
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
-                  }}
-                  onClick={() => moveFoundIndex(1)}
-                >
-                  <IncMoveIndexIcon className="w-3 h-3"/>
-                </button>
-                <button className="flex justify-center items-center cursor-pointer text-gray-600 w-5 h-[22px] bg-[#e5e5e5] hover:bg-[#ededed] rounded-[3px]"
-                  style={{
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                  }}
-                  onClick={() => moveFoundIndex(-1)}
-                >
-                  <DecMoveIndexIcon className="w-3 h-3"/>
-                </button>                 
-              </div>
               <button className="flex justify-center items-center w-8 h-8 text-gray-500 hover:text-gray-700 cursor-pointer"
                 onClick={() => setSearchStr("")}
               >
@@ -90,7 +102,7 @@ interface HeaderProps extends SearchProps {
   fields: FieldsData, 
   viewData: ViewDetailedData
 }
-const Header = ({ fields, viewData, searchStr, setSearchStr, foundIndex, numSearchFound, moveFoundIndex } : HeaderProps) => {
+const Header = ({ fields, viewData, searching, searchStr, setSearchStr, foundIndex, numSearchFound, moveFoundIndex } : HeaderProps) => {
   return (
     <div className="h-[48px] border-box border-b-[1px] flex flex-row justify-between items-center gap-2 flex-shrink-0"
       style={{
@@ -114,7 +126,7 @@ const Header = ({ fields, viewData, searchStr, setSearchStr, foundIndex, numSear
       <div className="flex flex-1 flex-row items-center justify-end pr-2">
         <div className="flex flex-row items-center gap-4">
           {viewData && <ViewConfigs view={viewData} fields={fields}/>}
-          <ViewSearch searchStr={searchStr} setSearchStr={setSearchStr} foundIndex={foundIndex} numSearchFound={numSearchFound} moveFoundIndex={moveFoundIndex}/>
+          <ViewSearch searching={searching} searchStr={searchStr} setSearchStr={setSearchStr} foundIndex={foundIndex} numSearchFound={numSearchFound} moveFoundIndex={moveFoundIndex}/>
         </div>
       </div>
     </div>

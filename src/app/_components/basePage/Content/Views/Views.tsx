@@ -53,12 +53,14 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
       searchData.records.forEach(record => numCells += record.cells?.length ?? 0)
       setNumFoundCells(numCells)
       setFoundIndex(0)
+    } else {
+      console.log("seaching")
     }
   }, [searching])
   return (
     <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>
       <div className="h-full w-full flex flex-col">
-        <Header viewData={viewData} fields={tableData?.fields} searchStr={searchStr} setSearchStr={setSearchStr} foundIndex={foundIndex ?? 0} numSearchFound={numFoundCells} moveFoundIndex={moveFoundIndex}/>
+        <Header viewData={viewData} fields={tableData?.fields} searchStr={searchStr} searching={searching} setSearchStr={setSearchStr} foundIndex={foundIndex ?? 0} numSearchFound={numFoundCells} moveFoundIndex={moveFoundIndex}/>
         <div className="h-full w-full flex flex-row relative">
           <Dialog.Content onOpenAutoFocus={(e) => e.preventDefault()} className="w-[279px] border-r-[1px] border-box px-2 py-[10px] flex-shrink-0"
             style={{
