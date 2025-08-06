@@ -251,7 +251,7 @@ export const baseRouter = createTRPCRouter({
       const base = await tx.base.create({ data: { name: input.name, userId: ctx.session.user.id } });
       const table = await createTable(ctx.db, "Table 1", base.id);
       await tx.base.update({ where: { id: base.id }, data: { lastOpenedTableId: table.id } });
-      return tx.base.findUnique({ where: { id: base.id }, include: { tables: { include: { views: true } } } });
+      return await tx.base.findUnique({ where: { id: base.id }, include: { tables: { include: { views: true } } } });
     }),
   getAll: protectedProcedure
     .query(async ({ ctx }) => {
