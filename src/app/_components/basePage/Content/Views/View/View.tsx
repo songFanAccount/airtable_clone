@@ -17,7 +17,7 @@ import {
   type ColumnDef
 } from '@tanstack/react-table'
 
-const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData }) => {
+const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
@@ -138,7 +138,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
   const sortedFieldIds = view?.sorts.map(sort => sort.fieldId) ?? []
   const [mainSelectedCell, setMainSelectedCell] = useState<[number, number] | undefined>(undefined)
   // Search handling
-  const currentCellRef = useRef<{recordIndex: number, record: RecordData, cellIndex: number, lastFoundIndex: number} | undefined>(undefined)
+  const currentCellRef = useRef<{currentSearchNum?: number, recordIndex: number, record: RecordData, cellIndex: number, lastFoundIndex: number} | undefined>(undefined)
   const [currentCell, setCurrentCell] = useState<CellData | undefined>(undefined)
   useEffect(() => {
     currentCellRef.current = undefined
@@ -148,6 +148,9 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
       setCurrentCell(undefined)
       currentCellRef.current = undefined
       return
+    }
+    if (currentCellRef.current && currentCellRef.current.currentSearchNum !== searchNum) {
+      currentCellRef.current = undefined
     }
     if (foundIndex !== undefined && foundRecords) {
       if (currentCellRef.current) {
@@ -164,7 +167,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
             if (newRecord) {
               const newRecordCellIndex = direction === 1 ? 0 : newRecord.cells.length - 1
               setCurrentCell(newRecord.cells?.[newRecordCellIndex])
-              currentCellRef.current = {recordIndex: newRecordIndex, record: newRecord, cellIndex: newRecordCellIndex, lastFoundIndex: foundIndex}
+              currentCellRef.current = {...currentCellRef.current, recordIndex: newRecordIndex, record: newRecord, cellIndex: newRecordCellIndex, lastFoundIndex: foundIndex}
             }
           } else {
             setCurrentCell(record.cells[newCellIndex])
@@ -177,7 +180,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
             if (currentRecord?.cells) {
               const newCellIndex = lastFoundIndex === 0 ? currentRecord.cells.length - 1 : 0
               setCurrentCell(currentRecord.cells[newCellIndex])
-              currentCellRef.current = {recordIndex: currentI, record: currentRecord, cellIndex: newCellIndex, lastFoundIndex: foundIndex}
+              currentCellRef.current = {...currentCellRef.current, recordIndex: currentI, record: currentRecord, cellIndex: newCellIndex, lastFoundIndex: foundIndex}
               break
             }
           }
@@ -192,7 +195,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
           if (nextRecordStartIndex > foundIndex) {
             const offset = foundIndex - cellIndex
             setCurrentCell(record.cells?.[offset])
-            currentCellRef.current = {recordIndex: i, record, cellIndex: offset, lastFoundIndex: foundIndex}
+            currentCellRef.current = {currentSearchNum: searchNum, recordIndex: i, record, cellIndex: offset, lastFoundIndex: foundIndex}
             break
           } else {
             cellIndex = nextRecordStartIndex
@@ -207,7 +210,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords }: { tableD
       setCurrentCell(undefined)
       currentCellRef.current = undefined
     }
-  }, [foundIndex, foundRecords])
+  }, [foundIndex, foundRecords, searchNum])
 
   const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
 

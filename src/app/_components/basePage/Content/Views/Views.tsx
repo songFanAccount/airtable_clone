@@ -32,6 +32,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
   }
   const [foundRecords, setFoundRecords] = useState<RecordsData>([])
   const [numFoundCells, setNumFoundCells] = useState<number>(0)
+  const [searchNum, setSearchNum] = useState<number>(0)
   useEffect(() => {
     const trimmed = searchStr.trim()
     if (trimmed !== "") {
@@ -53,8 +54,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
       searchData.records.forEach(record => numCells += record.cells?.length ?? 0)
       setNumFoundCells(numCells)
       setFoundIndex(0)
-    } else {
-      console.log("seaching")
+      setSearchNum(prev => prev + 1)
     }
   }, [searching])
   return (
@@ -74,7 +74,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
             </VisuallyHidden>
             <SlidingSidebar views={views} currentView={currentView} navToView={navToView}/>
           </Dialog.Content>
-          {viewData && <View tableData={tableData} view={viewData} searchStr={searchStr} foundIndex={foundIndex} foundRecords={foundRecords}/>}
+          {viewData && <View tableData={tableData} view={viewData} searchStr={searchStr} foundIndex={foundIndex} foundRecords={foundRecords} searchNum={searchNum}/>}
         </div>
       </div>
     </Dialog.Root>

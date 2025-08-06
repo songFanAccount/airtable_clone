@@ -16,6 +16,7 @@ const HideFieldsConfig = ({ viewId, fields, hiddenFieldIds } : Props) => {
   const { mutate: updateHiddenFields, status: updateHFStatus } = api.base.updateViewHiddenFields.useMutation({
     onSuccess: async (_) => {
       await utils.base.getView.invalidate()
+      await utils.base.searchInView.invalidate()
     }
   })
   return (

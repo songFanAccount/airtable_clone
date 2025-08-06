@@ -821,6 +821,10 @@ export const baseRouter = createTRPCRouter({
             }
           }
         })
+        const hiddenFieldIds = view.hiddenFieldIds
+        const hiddenClause = hiddenFieldIds.length
+          ? `AND f.id NOT IN (${hiddenFieldIds.map(id => `'${id}'`).join(',')})`
+          : '';
         const tableId = view.tableId
         const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
         const andStrs: string[] = []
@@ -882,7 +886,10 @@ export const baseRouter = createTRPCRouter({
                 'fieldId', f.id,
                 'recordId', r.id
               ) ORDER BY f."columnNumber"
-            ) FILTER (WHERE c."value" ILIKE CONCAT('%', '${input.searchStr}', '%'))
+            ) FILTER (
+              WHERE c."value" ILIKE CONCAT('%', '${input.searchStr}', '%')
+              ${hiddenClause}
+            )
             AS cells
           FROM "Record" r
           LEFT JOIN "Cell" c ON r.id = c."recordId"
