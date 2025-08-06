@@ -259,7 +259,7 @@ export const baseRouter = createTRPCRouter({
           where: { id: base.id },
           data: { lastOpenedTableId: table.id }
         })
-        return tx.base.findUnique({
+        return await tx.base.findUnique({
           where: { id: base.id },
           include: {
             tables: {
