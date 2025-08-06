@@ -769,17 +769,39 @@ export const baseRouter = createTRPCRouter({
           if (!filters[0]) continue
           const andConditions: Prisma.CellWhereInput[] = []
           const orConditions: Prisma.CellWhereInput[] = []
-          const someCondition: Prisma.CellWhereInput = {fieldId}
           for (const filter of filters) {
-            if (filter.joinType === FilterJoinType.AND) andConditions.push(generateCellWhereCondition(filter))
-            else orConditions.push(generateCellWhereCondition(filter))
+            if (filter.joinType === FilterJoinType.AND)
+              andConditions.push(generateCellWhereCondition(filter))
+            else
+              orConditions.push(generateCellWhereCondition(filter))
           }
-          someCondition.OR = [{AND: andConditions}, {OR: orConditions}]
-          const recordCellsWhereCondition: Prisma.CellListRelationFilter = {some: someCondition}
-          filterConditions.push({cells: recordCellsWhereCondition})
+          // If there are OR conditions for this field
+          if (orConditions.length > 0) {
+            filterConditions.push({
+              cells: {
+                some: {
+                  fieldId,
+                  OR: orConditions
+                }
+              }
+            })
+          }
+          // If there are AND conditions for this field
+          if (andConditions.length > 0) {
+            filterConditions.push({
+              cells: {
+                some: {
+                  fieldId,
+                  AND: andConditions
+                }
+              }
+            })
+          }
         }
-        const whereCond: Prisma.RecordWhereInput = {tableId: view.tableId}
-        if (filters.length > 0) whereCond.OR = filterConditions
+        const whereCond: Prisma.RecordWhereInput = {
+          tableId: view.tableId,
+          OR: filterConditions
+        }
         const totalRecordsInView = await tx.record.count({
           where: whereCond,
         })
