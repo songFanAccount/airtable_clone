@@ -165,9 +165,10 @@ export function validFilter(filter: Filter) {
   if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
   return filter.compareVal !== ""
 }
-async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string) {
+async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">, newName: string, baseId: string, tableId: string, viewId: string) {
   let newTable = await tx.table.create({
     data: {
+      id: tableId,
       name: newName,
       baseId: baseId
     }
@@ -193,7 +194,6 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
     {name: "Address", type: FieldType.Text},
     {name: "Age", type: FieldType.Number},
     {name: "Rank", type: FieldType.Number},
-    {name: "Note", type: FieldType.Text},
   ]
   for (const [index, fieldProps] of defaultFields.entries()) {
     const { name, type } = fieldProps;
@@ -226,6 +226,7 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
   }
   const defaultView = await tx.view.create({
     data: {
+      id: viewId,
       name: "Grid view",
       tableId: newTable.id,
       hiddenFieldIds: []
@@ -245,11 +246,11 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
 }
 export const baseRouter = createTRPCRouter({
   create: protectedProcedure
-    .input(z.object({name: z.string()}))
+    .input(z.object({name: z.string(), baseId: z.string(), tableId: z.string(), viewId: z.string()}))
     .mutation(async ({ ctx, input }) => {
       const tx = ctx.db;
-      const base = await tx.base.create({ data: { name: input.name, userId: ctx.session.user.id } });
-      const table = await createTable(ctx.db, "Table 1", base.id);
+      const base = await tx.base.create({ data: { id: input.baseId, name: input.name, userId: ctx.session.user.id } });
+      const table = await createTable(ctx.db, "Table 1", base.id, input.tableId, input.viewId);
       await tx.base.update({ where: { id: base.id }, data: { lastOpenedTableId: table.id } });
       return await tx.base.findUnique({ where: { id: base.id }, include: { tables: { include: { views: true } } } });
     }),
@@ -320,9 +321,9 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   addNewTable: protectedProcedure
-    .input(z.object({baseId: z.string(), newName: z.string()}))
+    .input(z.object({baseId: z.string(), tableId: z.string(), viewId: z.string(), newName: z.string()}))
     .mutation(async ({ctx, input}) => {
-      return createTable(ctx.db, input.newName, input.baseId)
+      return await createTable(ctx.db, input.newName, input.baseId, input.tableId, input.viewId)
     }),
   deleteTable: protectedProcedure
     .input(z.object({baseId: z.string(), tableId: z.string(), fallbackTableId: z.string()}))
@@ -490,7 +491,7 @@ export const baseRouter = createTRPCRouter({
           }
         })
         return createdRecords
-      }, {maxWait: 200000, timeout: 600000})
+      }, {maxWait: 2000000, timeout: 6000000})
     }),
   addNewField: protectedProcedure
     .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string()}))
@@ -824,7 +825,7 @@ export const baseRouter = createTRPCRouter({
           totalRecordsInView,
           records,
         }
-      }, {maxWait: 200000, timeout: 600000})
+      }, {maxWait: 2000000, timeout: 6000000})
     }),
   searchInView: protectedProcedure
     .input(z.object({viewId: z.string(), searchStr: z.string()}))

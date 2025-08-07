@@ -174,17 +174,19 @@ interface RecordProps {
   rowNum: number, 
   mainSelectedCell?: [number, number], 
   setMainSelectedCell: (cell?: [number,number]) => void,
+  onSelect: () => void,
+  isSelected: boolean,
   multipleRecordsSelected: boolean,
   onDeleteRecord: () => void
 }
 
-const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
+const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
   const [recordData, setRecordData] = useState<CellData[]>(row.original.cells)
   useEffect(() => {
     setRecordData(row.original.cells)
   }, [row.original.cells])
-  const isSelectedRow = row.getIsSelected()
+  const isSelectedRow = isSelected
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const active = isHovered || isSelectedRow
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
@@ -238,9 +240,9 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
                 id={`checkbox-${row.id}`}
                 className="w-4 h-4 mx-2 rounded border border-gray-300 flex items-center justify-center
                 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                checked={row.getIsSelected()}
-                onCheckedChange={row.getToggleSelectedHandler()}
-                >
+                checked={isSelected}
+                onCheckedChange={_ => onSelect()}
+              >
                 <Checkbox.Indicator>
                   <CheckIcon className="text-white w-4 h-4" />
                 </Checkbox.Indicator>

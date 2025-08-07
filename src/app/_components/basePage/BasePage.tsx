@@ -110,9 +110,20 @@ const BasePage = () => {
   const { baseId, tableId, viewId } = useParams()
   const router = useRouter()
   const { data: session, status } = useSession()
-  const { data: baseData } = api.base.getAllFromBase.useQuery({ id: baseId as string }, {
-    enabled: !!session?.user
+  const { data: baseData, refetch } = api.base.getAllFromBase.useQuery({ id: baseId as string }, {
+    enabled: false
   })
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refetch().then((res) => {
+        if (res.data) {
+          clearInterval(interval)
+        }
+      })
+    }, 500)
+  
+    return () => clearInterval(interval)
+  }, [refetch])
   const tableData = baseData?.tables.find((table) => table.id === tableId)
   const tableViews = tableData?.views
   const viewData = tableData?.views.find((view) => view.id === viewId)

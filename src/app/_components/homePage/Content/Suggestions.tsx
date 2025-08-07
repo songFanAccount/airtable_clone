@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { nanoid } from 'nanoid'
 
 interface SuggestionInfo {
   Icon: React.ElementType;
@@ -65,13 +66,16 @@ const Suggestions = () => {
       if (createdBase) {
         toast.success(`Created base: "${createdBase.name}"`)
         await utils.base.getAll.invalidate()
-        const lastOpenedTableId = createdBase.lastOpenedTableId
-        const lastOpenedTable = createdBase.tables.find((table) => table.id === lastOpenedTableId)
-        const lastOpenedViewId = lastOpenedTable?.lastOpenedViewId
-        if (lastOpenedTableId && lastOpenedViewId) router.push(`/base/${createdBase.id}/${lastOpenedTableId}/${lastOpenedViewId}`)
       }
     }
   })
+  function onCreateBase() {
+    const baseId = nanoid(6)
+    const tableId = nanoid(6)
+    const viewId = nanoid(6)
+    createBase({name: "Untitled Base", baseId, tableId, viewId})
+    router.push(`/base/${baseId}/${tableId}/${viewId}`)
+  }
   const isLoading = status === "pending"
   const suggestions: SuggestionInfo[] = [
     {
@@ -100,7 +104,7 @@ const Suggestions = () => {
       iconColor: "#3b66a3",
       title: "Build an app on your own",
       description: "Start with a blank app and build your ideal workflow.",
-      func: () => {if (!session?.user) return; createBase({ name: "Untitled Base" }); },
+      func: () => {if (!session?.user) return; onCreateBase(); },
       isDisabled: !session?.user || isLoading
     },
   ];

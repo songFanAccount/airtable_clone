@@ -12,8 +12,6 @@ import { FilterOperator } from "@prisma/client";
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
   type ColumnDef
 } from '@tanstack/react-table'
 
@@ -28,7 +26,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     count: totalNumRows,
     getScrollElement: () => ref.current,
     estimateSize: () => 32,
-    overscan: 100
+    overscan: 20
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
   const startIndex = virtualRows[0]?.index ?? 0
@@ -75,13 +73,18 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     data: records ?? [],
     columns,
     state: { rowSelection },
-    onRowSelectionChange: setRowSelection,
-    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
-
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([])
+  function selectRecord(recordId: string) {
+    const newRecordIds = new Set(selectedRecordIds)
+    if (newRecordIds.has(recordId)) {
+      newRecordIds.delete(recordId)
+    } else {
+      newRecordIds.add(recordId)
+    }
+    setSelectedRecordIds([...newRecordIds])
+  }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async () => {
       toast.success(`Created new record!"`)
@@ -119,10 +122,9 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       await utils.base.getRecords.invalidate()
     }
   })
-  function onDeleteSelectedRecords(callId?: string) {
+  function onDeleteSelectedRecords(callId: string) {
     if (!tableData) return
-    const selectedIds = callId ? [callId] : table.getSelectedRowModel().rows.map(r => r.original.id)
-    deleteRecords({ tableId: tableData.id, recordIds: selectedIds })
+    deleteRecords({ tableId: tableData.id, recordIds: selectedRecordIds.includes(callId) ? selectedRecordIds : [...selectedRecordIds, callId] })
   }
 
   // Refs and filters
@@ -221,8 +223,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
           <ColumnHeadings
             tableId={tableData?.id}
             fields={includedFields}
-            selectAll={table.getIsAllRowsSelected()}
-            onCheck={table.getToggleAllRowsSelectedHandler()}
             activeFilterFieldIds={activeFilterFieldIds}
             sortedFieldIds={sortedFieldIds}
           />
@@ -238,10 +238,10 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                   (isFetching && recordsCache)
                     ? recordsCache.data?.[absoluteIndex - recordsCache.startIndex]
                     : records?.[absoluteIndex - startIndex];
-
-                const row = table
+                const startI = isFetching && recordsCache ? recordsCache.startIndex : startIndex
+                const row = record && table
                   .getRowModel()
-                  .rows.find((r) => r.original.id === record?.id)!
+                  .rows[absoluteIndex - startI]!
                 return (
                   <div
                     key={`row-${absoluteIndex}`}
@@ -264,7 +264,9 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                         rowNum={absoluteIndex + 1}
                         mainSelectedCell={mainSelectedCell}
                         setMainSelectedCell={setMainSelectedCell}
-                        multipleRecordsSelected={table.getSelectedRowModel().rows.length > 1}
+                        onSelect={() => selectRecord(record.id)}
+                        isSelected={selectedRecordIds.includes(record.id)}
+                        multipleRecordsSelected={selectedRecordIds.length > 1}
                         onDeleteRecord={() => {
                           if (deleteStatus === "pending") return;
                           onDeleteSelectedRecords(record.id);

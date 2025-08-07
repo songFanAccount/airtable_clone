@@ -10,6 +10,7 @@ import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { useState } from "react";
+import { nanoid } from "nanoid";
 const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tablesData: TablesData, currentTable: TableData }) => {
   if (tablesData) tablesData.sort((a, b) => {
     if (a && b) {
@@ -17,6 +18,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
     return 0;
   })
+  const [creatingTable, setCreatingTable] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)
   const [newName, setNewName] = useState<string>("")
   const router = useRouter()
@@ -26,10 +28,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (createdTable) {
         toast.success(`Created table: "${createdTable.name}"`)
         await utils.base.getAllFromBase.invalidate()
-        await utils.base.getRecords.invalidate()
-        const newTableId = createdTable.id
-        const defaultViewId = createdTable.lastOpenedViewId
-        if (newTableId && defaultViewId) router.push(`/base/${baseId}/${newTableId}/${defaultViewId}`)
       }
     }
   })
@@ -38,7 +36,11 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     if (baseId && tablesData) {
       let newTableNumber = 1
       while (tablesData.some(table => table?.name === `Table ${newTableNumber}`)) newTableNumber++
-      addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId })
+      const tableId = nanoid(6)
+      const viewId = nanoid(6)
+      addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId, tableId, viewId })
+      setCreatingTable(true)
+      router.push(`/base/${baseId}/${tableId}/${viewId}`)
     }
   }
   const { mutate: deleteTable, status: deleteTableStatus } = api.base.deleteTable.useMutation({
@@ -46,8 +48,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (updatedBase) {
         toast.success(`Deleted table!`)
         await utils.base.getAllFromBase.invalidate()
-        await utils.base.getRecords.invalidate()
-      
         const fallbackTableId = updatedBase.lastOpenedTableId
         const fallbackTable = tablesData?.find((tableData) => tableData?.id === fallbackTableId)
         const fallbackViewId = fallbackTable?.lastOpenedViewId
@@ -216,6 +216,22 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                         </div>
                     )
                   })
+                }
+                {
+                  !currentTable || creatingTable &&
+                  <button className="flex-shrink-0 h-[calc(100%+1px)] w-[90px] px-3 font-[500] text-black bg-white border-box border-t-[1px] border-r-[1px] rounded-[6px] cursor-pointer"
+                    style={{
+                      borderColor: "hsl(202, 10%, 88%)",
+                      borderLeftWidth: tablesData ? "1px" : 0,
+                      borderTopLeftRadius: tablesData ? "6px" : 0,
+                      borderBottomLeftRadius: 0,
+                      borderBottomRightRadius: 0,
+                    }}
+                  >
+                    <div className="flex flex-row items-center">
+                      <LoadingIcon className="w-4 h-4 animate-spin"/>
+                    </div>
+                  </button>
                 }
               </div>
               <div className="flex flex-row items-center flex-shrink-0">

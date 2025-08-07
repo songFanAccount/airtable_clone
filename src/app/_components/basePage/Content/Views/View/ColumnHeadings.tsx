@@ -10,7 +10,7 @@ import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import { FieldType } from "@prisma/client";
 import React, { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { toastTODO } from "~/hooks/helpers";
+import { toastNoFunction, toastTODO } from "~/hooks/helpers";
 import { toast } from "react-toastify";
 
 const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { field : FieldData, isFirst: boolean, onlyField: boolean, isFiltered: boolean, isSortedBy: boolean }) => {
@@ -107,7 +107,7 @@ const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { fie
     </Popover.Root>
   )
 }
-const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, selectAll: boolean, onCheck: (checked: boolean | "indeterminate") => void, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
+const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
   const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
   const [newFieldName, setNewFieldName] = useState<string>("")
@@ -160,8 +160,8 @@ const ColumnHeadings = ({ tableId, fields, selectAll, onCheck, activeFilterField
       <div className="w-[87px] border-box border-[#dfe2e4] border-b-[1px] h-full flex flex-row items-center pl-4 bg-white">
         <div className="flex items-center space-x-2">
           <Checkbox.Root
-            checked={selectAll}
-            onCheckedChange={onCheck}
+            checked={false}
+            onCheckedChange={() => toastNoFunction()}
             id="c1"
             className="w-4 h-4 mx-2 rounded border border-gray-300 flex items-center justify-center
                       data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
