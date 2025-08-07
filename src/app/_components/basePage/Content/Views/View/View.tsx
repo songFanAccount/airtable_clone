@@ -33,11 +33,20 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
   
   const [numFetches, setNumFetches] = useState<number>(0)
-  const { data: recordsObj, isFetching } = api.base.getRecords.useQuery(
+  const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
     { viewId: view?.id ?? "", skip: startIndex, take: endIndex - startIndex + 1 },
     { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData }
   )
-
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refetch().then((res) => {
+        if (res.data) {
+          clearInterval(interval)
+        }
+      })
+    }, 500)
+    return () => clearInterval(interval)
+  }, [refetch])
   useEffect(() => {
     if (view) void utils.base.getRecords.invalidate();
   }, [view, utils, tableData?.id]);
@@ -96,10 +105,15 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     if (addRecordStatus === "pending") return
     if (tableData && fields) addRecord({ tableId: tableData.id })
   }
-
+  const [startTime, setStartTime] = useState<number | undefined>(undefined)
+  const [lastAddTimeTaken, setLastAddTimeTaken] = useState<number | undefined>(undefined)
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onSuccess: async (addEvent) => {
       toast.success(`Added ${addEvent.count} records!`)
+      if (startTime) {
+        setLastAddTimeTaken(Date.now() - startTime)
+        setStartTime(undefined)
+      }
       await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
@@ -108,11 +122,11 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const xsStr = ["10", "100", "100k", "1 mil"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
-    if (totalNumRows + x > 1500000) {
-      toast.error(`Row limit capped at 1.5mil, this action would exceed this cap!`)
-      return
+    if (tableData) {
+      setStartTime(Date.now())
+      setLastAddTimeTaken(undefined)
+      addXRecords({ tableId: tableData.id, numRecords: x })
     }
-    if (tableData) addXRecords({ tableId: tableData.id, numRecords: x })
   }
 
   const { mutate: deleteRecords, status: deleteStatus } = api.base.deleteRecords.useMutation({
@@ -214,7 +228,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     }
   }, [foundIndex, foundRecords, searchNum])
 
-  const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}`
+  const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}. ${lastAddTimeTaken ? `Last add time: ${(lastAddTimeTaken / 1000).toFixed(2)}s` : ''}`
 
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">

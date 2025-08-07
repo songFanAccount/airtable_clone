@@ -1,7 +1,7 @@
 'use client'
 import { useSession } from "next-auth/react"
 import { useParams, useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { api } from "~/trpc/react"
 import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
@@ -124,6 +124,12 @@ const BasePage = () => {
   
     return () => clearInterval(interval)
   }, [refetch])
+  const [currentTable, setCurrentTable] = useState<TableData | undefined>(undefined)
+  useEffect(() => {
+    if (baseData) {
+      setCurrentTable(baseData.tables.find(table => table.id === tableId))
+    }
+  }, [baseData])
   const tableData = baseData?.tables.find((table) => table.id === tableId)
   const tableViews = tableData?.views
   const viewData = tableData?.views.find((view) => view.id === viewId)
@@ -135,16 +141,16 @@ const BasePage = () => {
     }
   }, [status, baseData, session, router])
   useEffect(() => {
-    if (baseData && tableData) {
-      document.title = `${baseData.name}: ${tableData.name} - Airtable`
+    if (baseData && currentTable) {
+      document.title = `${baseData.name}: ${currentTable.name} - Airtable`
     }
-  }, [baseData, tableData])
+  }, [baseData, currentTable])
   return (
     <div className="flex flex-row h-screen w-screen overflow-x-clip">
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
         <Header baseId={baseData?.id} baseName={baseData?.name}/>
-        <Content baseData={baseData} currentTable={tableData} views={tableViews} currentView={viewData} />
+        <Content baseData={baseData} currentTable={currentTable} views={tableViews} currentView={viewData} />
       </div>
     </div>
   )

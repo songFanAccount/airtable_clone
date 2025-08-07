@@ -45,6 +45,7 @@
     "nanoid": "^5.1.5",
     "next": "^15.2.3",
     "next-auth": "5.0.0-beta.25",
+    "p-limit": "^6.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",

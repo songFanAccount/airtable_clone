@@ -115,7 +115,6 @@ model Record {
   tableId   String
   table     Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
   cells     Cell[]
-  createdAt DateTime  @default(now())
   @@unique([tableId, rowNum])
 }
 

@@ -13,7 +13,7 @@ function isNumber(str: string): boolean {
 }
 
 interface CellProps {
-  cell?: CellData, 
+  cell?: CellData,
   field: FieldData,
   mainSelectedCell?: [number,number], 
   isFirst: boolean, 
@@ -31,7 +31,7 @@ interface CellProps {
 }
 
 const CellComp = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
-  const value = cell?.value
+  const value = cell?.value ?? ""
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -50,7 +50,7 @@ const CellComp = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelect
     const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(newValue))
     if (ok) {
       setNewValue(newValue)
-      onCellChange(cell.id, newValue)
+      onCellChange(cell?.id, newValue)
     }
   }
   function onKeyDown(event: KeyboardEvent)  {
@@ -182,9 +182,17 @@ interface RecordProps {
 
 const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
-  const [recordData, setRecordData] = useState<CellData[]>(row.original.cells)
+  const [recordData, setRecordData] = useState<Record<string, string>>({})
   useEffect(() => {
-    setRecordData(row.original.cells)
+    const cells = row.original.cells
+    if (cells) {
+      const newRecordData: Record<string, string> = {}
+      cells.forEach(cell => {
+        const fieldId = cell.fieldId
+        newRecordData[fieldId] = cell.value
+      })
+      setRecordData(newRecordData)
+    }
   }, [row.original.cells])
   const isSelectedRow = isSelected
   const [isHovered, setIsHovered] = useState<boolean>(false)
@@ -198,15 +206,11 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
       }
     }
   })
-  function onRecordChange(cellId: string, newValue: string, type: FieldType) {
-    setRecordData(prev =>
-      prev.map(cell =>
-        cell.id === cellId ? { ...cell, value: newValue } : cell
-      )
-    );
+  function onRecordChange(fieldId: string, newValue: string, type: FieldType) {
+    setRecordData(prev => ({...prev, fieldId: newValue}));
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
-      updateCell({cellId, newValue, type})
+      updateCell({fieldId, newValue, type})
     }, 1000)
     setTimer(newTimer)
   }
@@ -255,7 +259,7 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
         }
       </div>
       {fields?.map((field, index) => {
-        const cellData = recordData.find(cell => cell.fieldId === field.id)
+        const cellData = row.original.cells?.find(cell => cell.fieldId === field.id)
         return (
           <CellComp 
             key={index}

@@ -218,7 +218,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                   })
                 }
                 {
-                  !currentTable || creatingTable &&
+                  !tablesData.some(table => table && (table.id === currentTable?.id)) || creatingTable &&
                   <button className="flex-shrink-0 h-[calc(100%+1px)] w-[90px] px-3 font-[500] text-black bg-white border-box border-t-[1px] border-r-[1px] rounded-[6px] cursor-pointer"
                     style={{
                       borderColor: "hsl(202, 10%, 88%)",

@@ -3,6 +3,9 @@ import { createTRPCRouter, protectedProcedure } from "../trpc"
 import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 import type { RecordData } from "~/app/_components/basePage/BasePage";
+import { nanoid } from "nanoid";
+import pLimit from 'p-limit'
+const limit = pLimit(5)
 
 function getMockData(fieldName: string, type: FieldType): string {
   fieldName = fieldName.trim().toLowerCase()
@@ -12,13 +15,13 @@ function getMockData(fieldName: string, type: FieldType): string {
     fieldName === "address" ? faker.location.streetAddress() :
     fieldName === "note" ? faker.lorem.sentence() :
     undefined
-    return fakerField ?? ""
+    return fakerField ?? faker.lorem.words()
   } else {
     const fakerField =
     fieldName === "age" ? faker.number.int({ min: 18, max: 90 }) :
     fieldName === "rank" ? faker.number.int({ min: 1, max: 1000 }) :
     undefined
-    return fakerField?.toString() ?? ""
+    return fakerField?.toString() ?? faker.number.int({ min: -100, max: 100 }).toString()
   }
 }
 
@@ -209,20 +212,20 @@ async function createTable(tx: Omit<PrismaClient, "$connect" | "$disconnect" | "
   }
   for (let i = 1; i <= 3; i++) {
     const record = await tx.record.create({data: {
+      id: nanoid(10),
       rowNum: i,
       tableId: newTable.id,
     }})
-    for (const fieldProps of defaultFields) {
-      const fieldId = fieldProps.id
-      if (!fieldId) continue
-      const mockDataStr = getMockData(fieldProps.name, fieldProps.type)
-      await tx.cell.create({data: {
+    const cellsData: Prisma.CellCreateManyInput[] = defaultFields.map(field => {
+      const mockDataStr = getMockData(field.name, field.type)
+      return {
         recordId: record.id,
-        fieldId,
+        fieldId: field.id,
         value: mockDataStr,
-        numValue: fieldProps.type === FieldType.Number ? Number(mockDataStr) : undefined
-      }})
-    }
+        numValue: field.type === FieldType.Number ? Number(mockDataStr) : undefined
+      } as Prisma.CellCreateManyInput
+    })
+    await tx.cell.createMany({data: cellsData })
   }
   const defaultView = await tx.view.create({
     data: {
@@ -344,7 +347,7 @@ export const baseRouter = createTRPCRouter({
           }
         })
         return updatedBase
-      })
+      }, {maxWait: 10000, timeout: 20000})
     }),
   renameTable: protectedProcedure
     .input(z.object({tableId: z.string(), newName: z.string()}))
@@ -450,48 +453,97 @@ export const baseRouter = createTRPCRouter({
   addXRecords: protectedProcedure
     .input(z.object({tableId: z.string(), numRecords: z.number()}))
     .mutation(async ({ctx, input}) => {
-      return ctx.db.$transaction(async (tx) => {
-        const numRecords = input.numRecords
-        const fields = await tx.field.findMany({
-          where: {tableId: input.tableId}
-        })
-        const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}})
-        const firstNewRowNum = table.lastAddedRecordPos + 1
-        const createdRecords = await tx.record.createMany({
-          data: Array.from({ length: numRecords }, (_, index) => {
-            return {
-              rowNum: firstNewRowNum + index,
-              tableId: input.tableId,
-            }
+      const numRecords = input.numRecords
+      const table = await ctx.db.table.findUniqueOrThrow({
+        where: { id: input.tableId },
+        include: { fields: true },
+      })
+      const fields = table.fields
+      const chunkSize = 5000
+      const numChunks = Math.ceil(numRecords / chunkSize)
+      const firstNewRowNum = table.lastAddedRecordPos + 1
+      type SQLChunk = { recordSQL: string; cellSQL: string }
+      const chunks: SQLChunk[] = []
+      for (let i = 0; i < numChunks; i++) {
+        const recordValues: string[] = []
+        const cellValues: string[] = []
+        for (let j = 0; j < Math.min(chunkSize, numRecords - i * chunkSize); j++) {
+          const rowNum = firstNewRowNum + i * chunkSize + j
+          const recordId = nanoid(10)
+
+          recordValues.push(`('${recordId}', ${rowNum}, '${table.id}')`)
+
+          fields.forEach((field) => {
+            const rawValue = getMockData(field.name, field.type)
+            const value = String(rawValue).replace(/'/g, "''") // escape single quotes
+            const numValue =
+              field.type === FieldType.Number && !isNaN(Number(rawValue))
+                ? Number(rawValue)
+                : 'NULL'
+            cellValues.push(
+              `('${nanoid(10)}', '${recordId}', '${field.id}', '${value}', ${numValue})`
+            )
           })
+        }
+        chunks.push({
+          recordSQL: `
+            INSERT INTO "Record" ("id", "rowNum", "tableId")
+            VALUES ${recordValues.join(', ')}
+          `,
+          cellSQL: `
+            INSERT INTO "Cell" ("id", "recordId", "fieldId", "value", "numValue")
+            VALUES ${cellValues.join(', ')}
+          `,
         })
-        const insertedRecords = await tx.record.findMany({
-          where: {tableId: table.id},
-          orderBy: {rowNum: 'desc'},
-          take: createdRecords.count
-        })
-        const cellsToInsert: Prisma.CellCreateManyInput[] = []
-        insertedRecords.forEach(record => {
-          fields.forEach(field => {
-            const mockDataStr = getMockData(field.name, field.type)
-            cellsToInsert.push({
-              recordId: record.id,
-              fieldId: field.id,
-              value: mockDataStr,
-              numValue: Number(mockDataStr)
-            })
+      }
+      await Promise.all(
+        chunks.map(({ recordSQL, cellSQL }) =>
+          limit(async () => {
+            await ctx.db.$executeRawUnsafe(recordSQL)
+            await ctx.db.$executeRawUnsafe(cellSQL)
           })
-        })
-        await tx.cell.createMany({data: cellsToInsert})
-        await tx.table.update({
-          where: { id: input.tableId },
-          data: {
-            recordCount: { increment: numRecords },
-            lastAddedRecordPos: table.lastAddedRecordPos + createdRecords.count,
-          }
-        })
-        return createdRecords
-      }, {maxWait: 2000000, timeout: 6000000})
+        )
+      )
+      await ctx.db.table.update({
+        where: { id: input.tableId },
+        data: {
+          recordCount: { increment: numRecords },
+          lastAddedRecordPos: table.lastAddedRecordPos + numRecords,
+        }
+      })
+      return {
+        count: numRecords
+      }
+      // return ctx.db.$transaction(async (tx) => {
+      //   const numRecords = input.numRecords
+      //   const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}, include: {fields: true}})
+      //   const fields = table.fields
+      //   const firstNewRowNum = table.lastAddedRecordPos + 1
+      //   const recordIds = Array.from({ length: numRecords }, (_, index) => (firstNewRowNum + index).toString())
+      //   const createdRecords = await tx.record.createMany({
+      //     data: Array.from({ length: numRecords }, (_, index) => {
+      //       return {
+      //         id: recordIds[index],
+      //         rowNum: firstNewRowNum + index,
+      //         tableId: input.tableId,
+      //       }
+      //     })
+      //   })
+      //   const cellsToInsert: Prisma.CellCreateManyInput[] = []
+      //   recordIds.forEach(recordId => {
+      //     fields.forEach(field => {
+      //       const mockDataStr = getMockData(field.name, field.type)
+      //       cellsToInsert.push({
+      //         recordId,
+      //         fieldId: field.id,
+      //         value: mockDataStr,
+      //         numValue: Number(mockDataStr)
+      //       })
+      //     })
+      //   })
+      //   await tx.cell.createMany({data: cellsToInsert})
+      //   return createdRecords
+      // }, {maxWait: 2000000, timeout: 6000000})
     }),
   addNewField: protectedProcedure
     .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string()}))
@@ -510,16 +562,6 @@ export const baseRouter = createTRPCRouter({
             type: input.fieldType === "TEXT" ? FieldType.Text : FieldType.Number
           }
         })
-        const records = await tx.record.findMany({
-          where: {
-            tableId: input.tableId
-          }
-        })
-        await tx.cell.createMany({data: records.map(record => ({
-          recordId: record.id,
-          fieldId: newField.id,
-          value: ""
-        }))})
         return newField
       })
     }),
@@ -531,7 +573,7 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   updateCell: protectedProcedure
-    .input(z.object({cellId: z.string(), newValue: z.string(), type: z.string()}))
+    .input(z.object({cellId: z.string().optional(), recordId: z.string().optional(), fieldId: z.string().optional(), newValue: z.string(), type: z.string()}))
     .mutation(async ({ctx, input}) => {
       const type: FieldType = input.type as FieldType
       return ctx.db.cell.update({
