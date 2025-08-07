@@ -800,8 +800,8 @@ export const baseRouter = createTRPCRouter({
         }
         const whereCond: Prisma.RecordWhereInput = {
           tableId: view.tableId,
-          OR: filterConditions
         }
+        if (filterConditions.length > 0) whereCond.OR = filterConditions
         const totalRecordsInView = await tx.record.count({
           where: whereCond,
         })
@@ -816,7 +816,6 @@ export const baseRouter = createTRPCRouter({
           },
           orderBy: [
             {rowNum: 'asc'},
-            
           ],
           skip: input.skip,
           take: input.take
