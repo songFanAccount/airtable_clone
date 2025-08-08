@@ -576,10 +576,28 @@ export const baseRouter = createTRPCRouter({
     .input(z.object({cellId: z.string().optional(), recordId: z.string().optional(), fieldId: z.string().optional(), newValue: z.string(), type: z.string()}))
     .mutation(async ({ctx, input}) => {
       const type: FieldType = input.type as FieldType
-      return ctx.db.cell.update({
-        where: {id: input.cellId},
-        data: {value: input.newValue, numValue: type === FieldType.Number ? Number(input.newValue) : undefined}
-      })
+      if (input.cellId) {
+        const cellData: Prisma.CellUpdateInput = {value: input.newValue}
+        if (type === FieldType.Number) cellData.numValue = Number(input.newValue)
+        const updatedCell = await ctx.db.cell.update({
+          where: {id: input.cellId},
+          data: cellData
+        })
+        return {
+          cell: updatedCell,
+          isNewCell: false
+        }
+      } else if (input.recordId && input.fieldId) {
+        const cellData: Prisma.CellUncheckedCreateInput = {value: input.newValue, recordId: input.recordId, fieldId: input.fieldId}
+        if (type === FieldType.Number) cellData.numValue = Number(input.newValue)
+        const createdCell = await ctx.db.cell.create({
+          data: cellData
+        })
+        return {
+          cell: createdCell,
+          isNewCell: true
+        }
+      }
     }),
   deleteRecords: protectedProcedure
     .input(z.object({

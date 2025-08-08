@@ -13,7 +13,7 @@ function isNumber(str: string): boolean {
 }
 
 interface CellProps {
-  cell?: CellData,
+  value?: string,
   field: FieldData,
   mainSelectedCell?: [number,number], 
   isFirst: boolean, 
@@ -24,14 +24,13 @@ interface CellProps {
   isSearchFound: boolean,
   isSearchSelected: boolean,
   onClick: () => void, 
-  onCellChange: (cellId: string, newValue: string) => void,
+  onCellChange: (newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void
 }
 
-const CellComp = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
-  const value = cell?.value ?? ""
+const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -45,12 +44,11 @@ const CellComp = ({ cell, field, mainSelectedCell, isFirst, isSelected, isSelect
     }
   }, [editing])
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!cell) return
     const newValue = e.target.value
     const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(newValue))
     if (ok) {
       setNewValue(newValue)
-      onCellChange(cell?.id, newValue)
+      onCellChange(newValue)
     }
   }
   function onKeyDown(event: KeyboardEvent)  {
@@ -201,16 +199,19 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
   const utils = api.useUtils()
   const { mutate: updateCell } = api.base.updateCell.useMutation({
     onSuccess: async (updatedCell) => {
-      if (activeFilterFieldIds.includes(updatedCell.fieldId) || sortedFieldIds.includes(updatedCell.fieldId)) {
-        await utils.base.getRecords.invalidate()
+      if (updatedCell) {
+        const { cell, isNewCell } = updatedCell
+        if (isNewCell || activeFilterFieldIds.includes(cell.fieldId) || sortedFieldIds.includes(cell.fieldId)) {
+          await utils.base.getRecords.invalidate()
+        }
       }
     }
   })
-  function onRecordChange(fieldId: string, newValue: string, type: FieldType) {
+  function onRecordChange(updateIds: {cellId?: string, recordId?: string, fieldId?: string}, newValue: string, type: FieldType) {
     setRecordData(prev => ({...prev, fieldId: newValue}));
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
-      updateCell({fieldId, newValue, type})
+      updateCell({...updateIds, newValue, type})
     }, 1000)
     setTimer(newTimer)
   }
@@ -259,7 +260,7 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
         }
       </div>
       {fields?.map((field, index) => {
-        const cellData = row.original.cells?.find(cell => cell.fieldId === field.id)
+        const cellData = row.original.cells?.[index]
         return (
           <CellComp 
             key={index}
@@ -267,14 +268,14 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
             isSortedBy={sortedFieldIds.includes(field.id)}
             isSearchFound={foundFieldIds?.includes(field.id) === true}
             isSearchSelected={currentCell?.recordId === row.original.id && currentCell?.fieldId === field.id}
-            cell={cellData}
+            value={recordData[field.id]}
             field={field}
             mainSelectedCell={mainSelectedCell} 
             isFirst={index === 0}
             isSelected={mainSelectedCell?.[0] === rowNum - 1 && mainSelectedCell?.[1] === index}
             isSelectedRow={active}
             onClick={() => setMainSelectedCell([rowNum-1, index])}
-            onCellChange={(cellId: string, newValue: string) => onRecordChange(cellId, newValue, field.type)}
+            onCellChange={(newValue: string) => onRecordChange({cellId: cellData?.id, fieldId: field.id, recordId: row.original.id}, newValue, field.type)}
             multipleRecordsSelected={multipleRecordsSelected}
             onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
             onTab={onTab}
