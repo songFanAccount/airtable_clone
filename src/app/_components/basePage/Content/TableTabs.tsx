@@ -39,6 +39,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tablesData])
   const [popoverOpen, setPopoverOpen] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)

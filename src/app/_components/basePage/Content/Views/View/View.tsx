@@ -53,6 +53,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   )
   useEffect(() => {
     if (view) void refetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
   const records = recordsObj?.records
@@ -71,6 +72,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       setRecordsCache({ data: records, startIndex: dStart, endIndex: dStart + dTake })
       setNumFetches(numFetches + 1)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFetching])
 
   // Table setup

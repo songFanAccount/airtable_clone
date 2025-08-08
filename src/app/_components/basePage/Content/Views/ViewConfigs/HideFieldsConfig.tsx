@@ -21,6 +21,7 @@ const HideFieldsConfig = ({ viewId, fields, hiddenFieldIds } : Props) => {
       if (hiddenFieldIds.size === newHiddenIds.size && !([...hiddenFieldIds].every(fieldId => newHiddenIds.has(fieldId))))
       setNewHiddenIds(hiddenFieldIds)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hiddenFieldIds])
   const [updateTimer, setUpdateTimer] = useState<NodeJS.Timeout | null>(null)
   useEffect(() => {
@@ -31,6 +32,7 @@ const HideFieldsConfig = ({ viewId, fields, hiddenFieldIds } : Props) => {
       }, 1500)
       setUpdateTimer(newTimer)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newHiddenIds])
   const { mutate: updateHiddenFields, status: updateHFStatus } = api.base.updateViewHiddenFields.useMutation({
     onSuccess: async (_) => {

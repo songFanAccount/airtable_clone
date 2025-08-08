@@ -70,6 +70,7 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
   useEffect(() => {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelected, editing, setEditing, setNewValue])
   return (
     <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>

@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { $Enums, FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Filter } from "@prisma/client"
+import { $Enums, FieldType, FilterJoinType, FilterOperator, type Prisma, type PrismaClient, SortOperator, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 import type { RecordData } from "~/app/_components/basePage/BasePage";
 import { nanoid } from "nanoid";
@@ -29,40 +29,40 @@ type FilterWithField = Prisma.FilterGetPayload<{
   include: { field: true }
 }>;
 
-function generateCellWhereCondition(filter: FilterWithField): Prisma.CellWhereInput {
-  const { type } = filter.field
-  const { operator, compareVal } = filter
-  if (type === FieldType.Text) {
-    let condition: Prisma.StringFilter<"Cell"> = {equals: ""}
-    switch (operator) {
-      case FilterOperator.CONTAINS:
-        condition = {contains: compareVal}
-        break;
-      case FilterOperator.NOTCONTAINS:
-        condition = { not: { contains: compareVal}}
-        break;
-      case FilterOperator.EQUALTO:
-        condition = { equals: compareVal }
-        break;
-      case FilterOperator.NOTEMPTY:
-        condition = { not: {equals: ""}}
-        break;
-      default:
-        break
-    }
-    return {value: condition}
-  } else {
-    let condition: Prisma.FloatNullableFilter<"Cell"> = { gt: Number(compareVal) }
-    switch (operator) {
-      case FilterOperator.SMALLERTHAN:
-        condition = { lt: Number(compareVal) }
-        break;
-      default:
-        break
-    }
-    return {numValue: condition}
-  }
-}
+// function generateCellWhereCondition(filter: FilterWithField): Prisma.CellWhereInput {
+//   const { type } = filter.field
+//   const { operator, compareVal } = filter
+//   if (type === FieldType.Text) {
+//     let condition: Prisma.StringFilter<"Cell"> = {equals: ""}
+//     switch (operator) {
+//       case FilterOperator.CONTAINS:
+//         condition = {contains: compareVal}
+//         break;
+//       case FilterOperator.NOTCONTAINS:
+//         condition = { not: { contains: compareVal}}
+//         break;
+//       case FilterOperator.EQUALTO:
+//         condition = { equals: compareVal }
+//         break;
+//       case FilterOperator.NOTEMPTY:
+//         condition = { not: {equals: ""}}
+//         break;
+//       default:
+//         break
+//     }
+//     return {value: condition}
+//   } else {
+//     let condition: Prisma.FloatNullableFilter<"Cell"> = { gt: Number(compareVal) }
+//     switch (operator) {
+//       case FilterOperator.SMALLERTHAN:
+//         condition = { lt: Number(compareVal) }
+//         break;
+//       default:
+//         break
+//     }
+//     return {numValue: condition}
+//   }
+// }
 
 function generateCellCondStr(filter: FilterWithField): string {
   const { id } = filter.field;
@@ -158,10 +158,6 @@ function generateCellCondStr(filter: FilterWithField): string {
     default:
       return '';
   }
-}
-
-function getDefaultOperator(fieldType: FieldType) {
-  return fieldType === FieldType.Text ? FilterOperator.CONTAINS : FilterOperator.GREATERTHAN
 }
 
 export function validFilter(filter: Filter) {
@@ -654,9 +650,7 @@ export const baseRouter = createTRPCRouter({
       }
       return filterCreateData
     })
-    type FilterUpdatePromise = ReturnType<typeof ctx.db.filter.updateMany>;
-    type FilterCreatePromise = ReturnType<typeof ctx.db.filter.createMany>;
-    const promises: (FilterUpdatePromise | FilterCreatePromise)[] = [];
+    const promises: Prisma.PrismaPromise<Prisma.BatchPayload>[] = [];
     if (filterUpdateDatum.length > 0) {
       promises.push(
         ...filterUpdateDatum.map((data) =>
@@ -679,35 +673,70 @@ export const baseRouter = createTRPCRouter({
     }
     await Promise.all(promises);
   }),
-  addSort: protectedProcedure
-    .input(z.object({viewId: z.string(), fieldId: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.sort.create({data: {
+  updateSorts: protectedProcedure
+  .input(
+    z.object({
+      sortsToUpdate: z.array(
+        z.object({
+          id: z.string(),
+          fieldId: z.string().optional(),
+          operator: z.nativeEnum($Enums.SortOperator).optional(),
+        })
+      ),
+      viewId: z.string(),
+      createdSorts: z.array(
+        z.object({
+          id: z.string(),
+          fieldId: z.string(),
+          operator: z.nativeEnum($Enums.SortOperator),
+          createdAt: z.date()
+        })
+      ),
+      deletedIds: z.array(z.string())
+    })
+  )
+  .mutation(async ({ctx, input}) => {
+    const sortUpdateDatum: Prisma.SortUncheckedUpdateManyInput[] = input.sortsToUpdate.map(sort => {
+      const {id, fieldId, operator} = sort
+      const sortUpdateData: Prisma.SortUncheckedUpdateManyInput = {id}
+      if (fieldId) sortUpdateData.fieldId = fieldId
+      if (operator) sortUpdateData.operator = operator
+      return sortUpdateData
+    })
+    const sortCreateDatum: Prisma.SortCreateManyInput[] = input.createdSorts.map(sort => {
+      const {id, fieldId, operator, createdAt} = sort
+      const sortCreateData: Prisma.SortCreateManyInput = {
+        id,
         viewId: input.viewId,
-        fieldId: input.fieldId,
-      }})
-    }),
-  changeSortField: protectedProcedure
-    .input(z.object({sortId: z.string(), fieldId: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.sort.update({
-        where: {id: input.sortId},
-        data: {fieldId: input.fieldId}
-      })
-    }),
-  changeSortOperator: protectedProcedure
-    .input(z.object({sortId: z.string(), operator: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.sort.update({
-        where: {id: input.sortId},
-        data: {operator: input.operator as SortOperator}
-      })
-    }),
-  deleteSort: protectedProcedure
-    .input(z.object({sortId: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.sort.delete({where: {id: input.sortId}})
-    }),
+        fieldId,
+        operator,
+        createdAt
+      }
+      return sortCreateData
+    })
+    const promises: Prisma.PrismaPromise<Prisma.BatchPayload>[] = [];
+    if (sortUpdateDatum.length > 0) {
+      promises.push(
+        ...sortUpdateDatum.map((data) =>
+          ctx.db.sort.updateMany({
+            where: { id: data.id as string },
+            data
+          })
+        )
+      );
+    }
+    if (sortCreateDatum.length > 0) {
+      promises.push(
+        ctx.db.sort.createMany({ data: sortCreateDatum })
+      );
+    }
+    if (input.deletedIds.length > 0) {
+      promises.push(
+        ctx.db.sort.deleteMany({ where: { id: { in: input.deletedIds } } })
+      );
+    }
+    await Promise.all(promises);
+  }),
   getRecords: protectedProcedure
     .input(z.object({viewId: z.string(), skip: z.number(), take: z.number()}))
     .query(async ({ ctx, input }) => {

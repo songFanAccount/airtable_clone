@@ -6,7 +6,7 @@ import { HiOutlineTrash as DeleteIcon } from "react-icons/hi";
 import { Loader2 as LoadingIcon } from "lucide-react";
 import type { FieldsData, FilterData } from "../../../BasePage";
 import { api } from "~/trpc/react";
-import { FieldType, FilterJoinType, FilterOperator, Prisma } from "@prisma/client";
+import { FieldType, FilterJoinType, FilterOperator, type Prisma } from "@prisma/client";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toastNoFunction } from "~/hooks/helpers";
 import { useEffect, useState } from "react";

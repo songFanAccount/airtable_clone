@@ -5,6 +5,7 @@ import { IoArrowBackOutline as HomeIcon } from "react-icons/io5";
 import { toastNoUI, toastNoWay } from "~/hooks/helpers";
 import { useState } from "react";
 import ProfileButton from "../../homePage/Header/ProfileButton";
+import Image from "next/image";
 
 const Sidebar = () => {
   const router = useRouter()
@@ -26,7 +27,13 @@ const Sidebar = () => {
                 <HomeIcon className="h-4 w-4" />
               </div>
             :
-              <img src="/assets/airtable_base.svg" alt="Airtable Base" className="h-6 w-6" />
+              <Image
+                src="/assets/airtable_base.svg"
+                alt="Airtable Base"
+                width={24}
+                height={24}
+                className="h-[24px] w-[24px]"
+              />
           }
         </button>
         <button className="cursor-pointer"

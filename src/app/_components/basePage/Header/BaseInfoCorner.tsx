@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import Image from "next/image";
 
 const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: string }) => {
   const router = useRouter()
@@ -28,6 +29,7 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
   })
   useEffect(() => {
     if (isDeleting && !isPending) router.push("/")
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPending, isDeleting])
   useEffect(() => {
     if (isDeleting) {
@@ -42,10 +44,12 @@ const BaseInfoCorner = ({ baseId, baseName }: { baseId?: string, baseName?: stri
     <Popover.Root>
       <div className="flex flex-row gap-2 items-center pl-4">
         <div className="w-[32px] h-[32px] flex justify-center items-center bg-[#99455a] rounded-[6px]">
-          <img
+          <Image
             src="/assets/airtable_base.svg"
             alt="Airtable Base"
-            className="w-[20px] h-[20px] filter invert"
+            width={20}
+            height={20}
+            className="h-[20px] w-[20px] filter invert"
           />
         </div>
         <div className="max-w-[480px]">

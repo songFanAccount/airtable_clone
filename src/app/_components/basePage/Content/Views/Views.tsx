@@ -49,6 +49,7 @@ const Views = ({ tableData, views, navToView } : { tableData: TableData, views: 
       setNumFoundCells(0)
       setFoundIndex(undefined)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchStr])
   useEffect(() => {
     if (!searching && searchData) {
@@ -59,6 +60,7 @@ const Views = ({ tableData, views, navToView } : { tableData: TableData, views: 
       setFoundIndex(0)
       setSearchNum(prev => prev + 1)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searching])
   return (
     <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen} modal={false}>

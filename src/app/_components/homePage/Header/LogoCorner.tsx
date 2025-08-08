@@ -1,4 +1,5 @@
 import { Bars3Icon } from "@heroicons/react/24/outline";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { toastNoUI, useSmallerThan600 } from "~/hooks/helpers";
@@ -25,7 +26,13 @@ const LogoCorner = () => {
         }
         <Link href="/">
           <div className="flex flex-row items-center gap-x-1 p-3 cursor-pointer">
-            <img src="/assets/airtable.svg" alt="Airtable" className="h-[27px] w-[27px]" />
+            <Image
+              src="/assets/airtable.svg"
+              alt="Airtable"
+              width={27}
+              height={27}
+              className="h-[27px] w-[27px]"
+            />
             <p className="font-medium text-[20px] pt-0.5">Airtable</p>
           </div>
         </Link>
