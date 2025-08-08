@@ -417,31 +417,24 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   addNewRecord: protectedProcedure
-    .input(z.object({tableId: z.string()}))
+    .input(z.object({tableId: z.string(), newRecordId: z.string()}))
     .mutation(async ({ctx, input}) => {
-      return ctx.db.$transaction(async (tx) => {
-        const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}})
-        const fields = await tx.field.findMany({where: {tableId: table.id}})
-        const rowNum = table.lastAddedRecordPos + 1
-        const newRecord = await tx.record.create({data: {
-          rowNum,
-          tableId: table.id,
-        }})
-        for (const field of fields) {
-          await tx.cell.create({data: {
-            recordId: newRecord.id,
-            fieldId: field.id,
-            value: ""
-          }})
-        }
-        await tx.table.update({
-          where: {id: input.tableId},
-          data: {
-            recordCount: { increment: 1 },
-            lastAddedRecordPos: rowNum,
-          }
-        })
-      })
+      const updatedTable = await ctx.db.table.update({
+        where: { id: input.tableId },
+        data: {
+          recordCount: { increment: 1 },
+          lastAddedRecordPos: { increment: 1 },
+        },
+        select: { lastAddedRecordPos: true },
+      });
+    
+      return await ctx.db.record.create({
+        data: {
+          id: input.newRecordId,
+          rowNum: updatedTable.lastAddedRecordPos,
+          tableId: input.tableId,
+        },
+      });
     }),
   addXRecords: protectedProcedure
     .input(z.object({tableId: z.string(), numRecords: z.number()}))

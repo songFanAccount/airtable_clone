@@ -1,6 +1,5 @@
 import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
-import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
 import Record from "./Record"
 import { api } from "~/trpc/react";
@@ -14,16 +13,18 @@ import {
   getCoreRowModel,
   type ColumnDef
 } from '@tanstack/react-table'
+import { nanoid } from "nanoid";
 
 const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
   const [totalNumRows, setTotalNumRows] = useState<number>(0)
+  const [newRecords, setNewRecords] = useState<string[]>([])
 
   // Virtualization
   const rowVirtualizer = useVirtualizer({
-    count: totalNumRows,
+    count: totalNumRows + newRecords.length,
     getScrollElement: () => ref.current,
     estimateSize: () => 32,
     overscan: 40
@@ -37,16 +38,20 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     { viewId: view?.id ?? "", skip: startIndex, take: totalNumRows === 0 ? 0 : endIndex - startIndex + 1 },
     { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData }
   )
+  const [initPolling, setInitPolling] = useState(true)
+  const [polling, setPolling] = useState(false);
   useEffect(() => {
+    if (!polling && !initPolling) return;
     const interval = setInterval(() => {
       void refetch().then((res) => {
         if (res.data) {
-          clearInterval(interval)
+          clearInterval(interval);
+          setInitPolling(false);
         }
-      })
-    }, 500)
-    return () => clearInterval(interval)
-  }, [refetch])
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [refetch, initPolling, polling, numFetches]);
   useEffect(() => {
     if (view) void utils.base.getRecords.invalidate();
   }, [view, utils, tableData?.id]);
@@ -66,6 +71,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     if (!isFetching) {
       setRecordsCache({ data: records, startIndex, endIndex })
       setNumFetches(numFetches + 1)
+      setNewRecords([])
     }
   }, [isFetching, records, startIndex, endIndex])
 
@@ -93,30 +99,31 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     setSelectedRecordIds([...newRecordIds])
   }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
-    onSuccess: async () => {
-      toast.success(`Created new record!"`)
+    onSuccess: async (_) => {
       await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
   })
   function onAddRecord() {
     if (addRecordStatus === "pending") return
-    if (tableData && fields) addRecord({ tableId: tableData.id })
+    const newRecordId = nanoid(10)
+    if (tableData && fields) {
+      addRecord({ tableId: tableData.id, newRecordId })
+      setNewRecords([...newRecords, newRecordId])
+    }
   }
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
-  const [lastAddTimeTaken, setLastAddTimeTaken] = useState<number | undefined>(undefined)
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onMutate: ({ numRecords }) => {
+      setPolling(true)
       const toastId = toast.loading(`Adding ${numRecords} records…`);
       setStartTime(Date.now());
-      setLastAddTimeTaken(undefined);
       return { toastId };
     },
     onSuccess: async (addEvent, _vars, ctx) => {
-      const timeTaken = Date.now() - (startTime ?? 0)
+      setPolling(false)
       const timeTakenStr = ((Date.now() - (startTime ?? 0)) / 1000).toFixed(2)
       if (startTime) {
-        setLastAddTimeTaken(timeTaken);
         setStartTime(undefined);
       }
       toast.update(ctx?.toastId, {
@@ -129,6 +136,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       await utils.base.getRecords.invalidate();
     },
     onError: (err, _vars, ctx) => {
+      setPolling(false)
       toast.update(ctx?.toastId ?? "", {
         render: err?.message ?? "Failed to add records.",
         type: "error",
@@ -345,7 +353,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
               className="flex flex-row items-center w-full bg-white text-gray-500 h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
               style={{ borderColor: "#dfe2e4" }}
               onClick={onAddRecord}
-              disabled={addRecordStatus === "pending"}
+              disabled={addRecordStatus === "pending" || addXRecordsStatus === "pending"}
             >
               <div className="min-w-[87px] w-[87px] h-full flex flex-row items-center pl-4">
                 <AddIcon className="w-5 h-5 ml-[6px]" />
