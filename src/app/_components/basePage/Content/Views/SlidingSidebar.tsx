@@ -2,6 +2,7 @@ import { GoPlus as AddIcon } from "react-icons/go";
 import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
 import { RiSettings4Line as SettingsIcon } from "react-icons/ri";
 import { MdOutlineTableChart as TableIcon } from "react-icons/md";
+import { Loader2 as LoadingIcon } from "lucide-react";
 import { StarIcon } from "@heroicons/react/24/outline"
 import { HiOutlineDotsHorizontal as OptionsIcon } from "react-icons/hi";
 import { MdOutlineModeEdit as RenameIcon } from "react-icons/md";
@@ -12,8 +13,10 @@ import type { ViewData, ViewsData } from "../../BasePage";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { toast } from "react-toastify";
+import { nanoid } from "nanoid";
+import { useParams } from "next/navigation";
 
-const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { views: ViewsData, viewData: ViewData, isCurrent: boolean, navToView: (viewId: string) => void, onlyView: boolean }) => {
+const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { views: ViewsData, viewData: ViewData, isCurrent: boolean, navToView?: (viewId: string) => void, onlyView: boolean }) => {
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)
@@ -22,15 +25,12 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
   const StartIcon = showOptions ? StarIcon : TableIcon
   const utils = api.useUtils()
   const { mutate: deleteView, status } = api.base.deleteView.useMutation({
-    onSuccess: async (newCurrentView) => {
-      if (newCurrentView) {
-        toast.success(`Deleted view!`)
-        await utils.base.getAllFromBase.invalidate()
-        await utils.base.getRecords.invalidate()
-        navToView(newCurrentView.id)
-      }
+    onSuccess: async (updatedTable) => {
+      toast.success(`Deleted view!`)
+      await utils.base.getAllFromBase.invalidate()
+      if (updatedTable?.lastOpenedViewId && navToView) navToView(updatedTable.lastOpenedViewId)
     }
-  }) 
+  })
   function onDeleteView() {
     if (status === "pending") return
     if (onlyView) {
@@ -38,7 +38,15 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
       return
     }
     if (viewData) {
-      deleteView({ viewId: viewData.id, isCurrentView: isCurrent })
+      let newViewId: string | undefined = undefined
+      if (isCurrent) {
+        const lastView = views?.[views.length - 1]
+        if (lastView) {
+          if (lastView.id === viewData.id) newViewId = views[views.length - 2]?.id
+          else newViewId = lastView.id
+        }
+      }
+      deleteView({ viewId: viewData.id, newViewId  })
       setActionsOpen(false)
     }
   }
@@ -68,45 +76,57 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
     }
   }
   return (
+    status === "pending"
+    ?
+      <></>
+    :
     <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
       <div className="flex flex-row items-center justify-between h-[32.25px] hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer px-3 py-2"
         style={{
-          backgroundColor: isCurrent ? "#f2f2f2" : undefined
+          backgroundColor: isCurrent && viewData ? "#f2f2f2" : undefined
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => {if(viewData) navToView(viewData.id)}}
+        onClick={() => {if(viewData && navToView) navToView(viewData.id)}}
       >
-        <div className="flex flex-row items-center gap-2 w-full">
-          <StartIcon className="w-4 h-4"
-            color={showOptions ? undefined : "#3380e5"}
-            onClick={(e) => {
-              e.stopPropagation()
-              toastNoFunction()
-            }}
-          />
-          <div className="w-full font-[500]">
-            {
-              isRenaming
-              ?
-                <input 
-                  className="w-full bg-white outline-none border-[2px] border-[#bfbfbf] rounded-[3px] border-box pl-[2px] h-[19px] relative left-[-4px]"
-                  autoFocus={true}
-                  onFocus={(e) => e.target.select()}
-                  value={newName}
-                  onChange={(e) => {
-                    setNewName(e.target.value)
-                  }}
-                  onBlur={handleOnBlur}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleOnBlur()
-                  }}
-                />
-              :
-                <span className="">{viewData?.name}</span>
-            }
+        {
+        viewData
+        ?
+          <div className="flex flex-row items-center gap-2 w-full">
+            <StartIcon className="w-4 h-4"
+              color={showOptions ? undefined : "#3380e5"}
+              onClick={(e) => {
+                e.stopPropagation()
+                toastNoFunction()
+              }}
+            />
+            <div className="w-full font-[500]">
+              {
+                isRenaming
+                ?
+                  <input 
+                    className="w-full bg-white outline-none border-[2px] border-[#bfbfbf] rounded-[3px] border-box pl-[2px] h-[19px] relative left-[-4px]"
+                    autoFocus={true}
+                    onFocus={(e) => e.target.select()}
+                    value={newName}
+                    onChange={(e) => {
+                      setNewName(e.target.value)
+                    }}
+                    onBlur={handleOnBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleOnBlur()
+                    }}
+                  />
+                :
+                  <span className="">{viewData?.name}</span>
+              }
+            </div>
           </div>
-        </div>
+        :
+          <div className="flex flex-row items-center h-full flex-shrink-0">
+            <LoadingIcon className="w-4 h-4 animate-spin"/>
+          </div>
+        }
         {
           showOptions &&
           <Popover.Trigger asChild>
@@ -145,7 +165,6 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
             </button>
             <button className="flex flex-row items-center h-8 p-2 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer disabled:cursor-not-allowed"
               onClick={onDeleteView}
-              disabled={status === "pending"}
             >
               <DeleteIcon className="w-[14px] h-[14px]"/>
               <span>Delete view</span>
@@ -157,34 +176,36 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
   )
 }
 const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
+  const {viewId} = useParams()
   const utils = api.useUtils()
   const { mutate: createView, status } = api.base.addNewView.useMutation({
     onSuccess: async (createdView) => {
       if (createdView) {
         toast.success(`Created new view: "${createdView.name}"`)
         await utils.base.getAllFromBase.invalidate()
-        await utils.base.getRecords.invalidate()
-        const newViewId = createdView.id
-        if (newViewId) navToView(newViewId)
       }
     }
   })
+  const canCreateView = status === "pending" || !views?.some(view => view?.id === viewId)
   function onCreateView() {
-    if (status === "pending") return
+    if (canCreateView) return
     if (views && currentView) {
       let newViewNumber = 1
       while (views.some(view => view?.name === `Grid ${newViewNumber}`)) newViewNumber++
+      const newViewId = nanoid(6)
       createView({
+        newViewId,
         newName: `Grid ${newViewNumber}`,
         tableId: currentView.tableId
       })
+      navToView(newViewId)
     }
   }
   return (
     <div className="flex flex-col w-full text-[13px]">
       <div className="flex flex-col w-full pb-2">
         <button className="pl-4 pr-3 flex flex-row items-center h-8 gap-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer text-gray-800 disabled:cursor-not-allowed"
-          disabled={status === "pending"}
+          disabled={status === "pending" || !views?.some(view => view?.id === viewId)}
           onClick={onCreateView}
         >
           <AddIcon className="w-4 h-4"/>
@@ -201,8 +222,9 @@ const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, 
         </div>
       </div>
       {
-        views?.map((viewData, index) => <ViewButton key={index} views={views} viewData={viewData} isCurrent={viewData?.id === currentView?.id} navToView={navToView} onlyView={views.length === 1}/>)
+        views?.map((viewData, index) => <ViewButton key={index} views={views} viewData={viewData} isCurrent={status !== "pending" && viewData?.id === currentView?.id} navToView={navToView} onlyView={views.length === 1}/>)
       }
+      {canCreateView && <ViewButton views={views} viewData={undefined} isCurrent={true} onlyView={false} navToView={undefined}/>}
     </div>
   );
 }

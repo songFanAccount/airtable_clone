@@ -106,23 +106,43 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
   const [lastAddTimeTaken, setLastAddTimeTaken] = useState<number | undefined>(undefined)
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
-    onSuccess: async (addEvent) => {
-      toast.success(`Added ${addEvent.count} records!`)
+    onMutate: ({ numRecords }) => {
+      const toastId = toast.loading(`Adding ${numRecords} records…`);
+      setStartTime(Date.now());
+      setLastAddTimeTaken(undefined);
+      return { toastId };
+    },
+    onSuccess: async (addEvent, _vars, ctx) => {
+      const timeTaken = Date.now() - (startTime ?? 0)
+      const timeTakenStr = ((Date.now() - (startTime ?? 0)) / 1000).toFixed(2)
       if (startTime) {
-        setLastAddTimeTaken(Date.now() - startTime)
-        setStartTime(undefined)
+        setLastAddTimeTaken(timeTaken);
+        setStartTime(undefined);
       }
-      await utils.base.getAllFromBase.invalidate()
-      await utils.base.getRecords.invalidate()
-    }
-  })
-  const xs = [10, 100, 100000, 1000000]
-  const xsStr = ["10", "100", "100k", "1 mil"]
+      toast.update(ctx?.toastId, {
+        render: `${addEvent.count} records, time: ${timeTakenStr}s`,
+        type: "success",
+        isLoading: false,
+        autoClose: 3000,
+      });
+      await utils.base.getAllFromBase.invalidate();
+      await utils.base.getRecords.invalidate();
+    },
+    onError: (err, _vars, ctx) => {
+      toast.update(ctx?.toastId ?? "", {
+        render: err?.message ?? "Failed to add records.",
+        type: "error",
+        isLoading: false,
+        autoClose: 5000,
+      });
+      setStartTime(undefined);
+    },
+  });
+  const xs = [10, 100, 100000]
+  const xsStr = ["10", "100", "100k"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
     if (tableData) {
-      setStartTime(Date.now())
-      setLastAddTimeTaken(undefined)
       addXRecords({ tableId: tableData.id, numRecords: x })
     }
   }
@@ -226,7 +246,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     }
   }, [foundIndex, foundRecords, searchNum])
 
-  const bottomMsg = isFetching ? "Fetching rows..." : `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}. ${lastAddTimeTaken ? `Last add time: ${(lastAddTimeTaken / 1000).toFixed(2)}s` : ''}`
+  const bottomMsg = `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}.`
 
   return (
     <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
@@ -334,11 +354,11 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                 <span className="mx-[6px]">Add one empty row</span>
               </div>
               <div className="ml-[6px] flex flex-row items-center gap-2 truncate">
-                {isFetching && (
+                {/* {isFetching && (
                   <div className="flex flex-row items-center h-full flex-shrink-0">
                     <LoadingIcon className="w-4 h-4 animate-spin" />
                   </div>
-                )}
+                )} */}
                 <span className="flex-1 truncate pr-[6px]">{bottomMsg}</span>
               </div>
             </button>

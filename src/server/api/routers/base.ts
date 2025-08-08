@@ -15,13 +15,13 @@ function getMockData(fieldName: string, type: FieldType): string {
     fieldName === "address" ? faker.location.streetAddress() :
     fieldName === "note" ? faker.lorem.sentence() :
     undefined
-    return fakerField ?? faker.lorem.words()
+    return fakerField ?? ""
   } else {
     const fakerField =
     fieldName === "age" ? faker.number.int({ min: 18, max: 90 }) :
     fieldName === "rank" ? faker.number.int({ min: 1, max: 1000 }) :
     undefined
-    return fakerField?.toString() ?? faker.number.int({ min: -100, max: 100 }).toString()
+    return fakerField?.toString() ?? ""
   }
 }
 
@@ -286,7 +286,9 @@ export const baseRouter = createTRPCRouter({
         include: {
           tables: {
             include: {
-              views: true,
+              views: {
+                orderBy: {createdAt: 'asc'}
+              },
               fields: {
                 orderBy: {
                   columnNumber: 'asc'
@@ -344,7 +346,7 @@ export const baseRouter = createTRPCRouter({
           data: { lastOpenedTableId: input.fallbackTableId }
         })
         return updatedBase
-      }, {maxWait: 10000, timeout: 20000})
+      }, {maxWait: 40000, timeout: 60000})
     }),
   renameTable: protectedProcedure
     .input(z.object({tableId: z.string(), newName: z.string()}))
@@ -355,42 +357,36 @@ export const baseRouter = createTRPCRouter({
       })
     }),
   addNewView: protectedProcedure
-    .input(z.object({tableId: z.string(), newName: z.string()}))
+    .input(z.object({tableId: z.string(), newViewId: z.string(), newName: z.string()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
         const newView = await tx.view.create({
           data: {
+            id: input.newViewId,
             name: input.newName,
             tableId: input.tableId
           }
         })
         await tx.table.update({
-          where: {
-            id: input.tableId
-          },
-          data: {
-            lastOpenedViewId: newView.id
-          }
+          where: { id: input.tableId },
+          data: { lastOpenedViewId: newView.id }
         })
         return newView
       })
     }),
   deleteView: protectedProcedure
-    .input(z.object({viewId: z.string(), isCurrentView: z.boolean()}))
+    .input(z.object({viewId: z.string(), newViewId: z.string().optional()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
         const deletedView = await tx.view.delete({
           where: {id: input.viewId}
         })
-        if (!input.isCurrentView) return null
-        const earliestCreatedView = await tx.view.findFirstOrThrow({
-          where: {tableId: deletedView.tableId},
-        })
-        await tx.table.update({
-          where: {id: deletedView.tableId},
-          data: {lastOpenedViewId: earliestCreatedView.id}
-        })
-        return earliestCreatedView
+        if (input.newViewId) {
+          return await tx.table.update({
+            where: {id: deletedView.tableId},
+            data: {lastOpenedViewId: input.newViewId}
+          })
+        }
       })
     }),
   renameView: protectedProcedure
@@ -467,12 +463,11 @@ export const baseRouter = createTRPCRouter({
         for (let j = 0; j < Math.min(chunkSize, numRecords - i * chunkSize); j++) {
           const rowNum = firstNewRowNum + i * chunkSize + j
           const recordId = nanoid(10)
-
           recordValues.push(`('${recordId}', ${rowNum}, '${table.id}')`)
-
           fields.forEach((field) => {
             const rawValue = getMockData(field.name, field.type)
-            const value = String(rawValue).replace(/'/g, "''") // escape single quotes
+            if (rawValue === "") return
+            const value = String(rawValue).replace(/'/g, "''")
             const numValue =
               field.type === FieldType.Number && !isNaN(Number(rawValue))
                 ? Number(rawValue)

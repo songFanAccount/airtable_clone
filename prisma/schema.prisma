@@ -138,6 +138,7 @@ model View {
     sorts Sort[] @relation("ViewSorts")
     table Table    @relation("TableViews", fields: [tableId], references: [id], onDelete: Cascade)
     openedByTable Table?   @relation("TableLastOpenedView")
+    createdAt DateTime @default(now())
 }
 
 enum FilterJoinType {

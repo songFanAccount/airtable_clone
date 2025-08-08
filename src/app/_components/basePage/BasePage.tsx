@@ -1,7 +1,7 @@
 'use client'
 import { useSession } from "next-auth/react"
 import { useParams, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { api } from "~/trpc/react"
 import Header from "./Header/Header"
 import Sidebar from "./SideBar/Sidebar"
