@@ -26,7 +26,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     count: totalNumRows,
     getScrollElement: () => ref.current,
     estimateSize: () => 32,
-    overscan: 20
+    overscan: 40
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
   const startIndex = virtualRows[0]?.index ?? 0
@@ -34,7 +34,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   
   const [numFetches, setNumFetches] = useState<number>(0)
   const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
-    { viewId: view?.id ?? "", skip: startIndex, take: endIndex - startIndex + 1 },
+    { viewId: view?.id ?? "", skip: startIndex, take: totalNumRows === 0 ? 0 : endIndex - startIndex + 1 },
     { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData }
   )
   useEffect(() => {
@@ -70,7 +70,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   }, [isFetching, records, startIndex, endIndex])
 
   // Table setup
-  const [rowSelection, setRowSelection] = useState({})
   const columns: ColumnDef<RecordData>[] = includedFields?.map(field => ({
     id: field.id,
     header: field.name,
@@ -81,7 +80,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const table = useReactTable({
     data: records ?? [],
     columns,
-    state: { rowSelection },
     getCoreRowModel: getCoreRowModel(),
   })
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([])

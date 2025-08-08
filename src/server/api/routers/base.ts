@@ -294,6 +294,7 @@ export const baseRouter = createTRPCRouter({
               },
               lastOpenedView: true,
             },
+            orderBy: {createdAt: 'asc'}
           },
           user: true,
           lastOpenedTable: true,
@@ -339,12 +340,8 @@ export const baseRouter = createTRPCRouter({
           }
         })
         const updatedBase = await tx.base.update({
-          where: {
-            id: input.baseId,
-          },
-          data: {
-            lastOpenedTableId: input.fallbackTableId
-          }
+          where: { id: input.baseId, },
+          data: { lastOpenedTableId: input.fallbackTableId }
         })
         return updatedBase
       }, {maxWait: 10000, timeout: 20000})

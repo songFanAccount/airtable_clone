@@ -9,16 +9,38 @@ import type { TableData, TablesData } from "../BasePage";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tablesData: TablesData, currentTable: TableData }) => {
-  if (tablesData) tablesData.sort((a, b) => {
-    if (a && b) {
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  const [deletingTableIds, setDeletingTableIds] = useState<string[]>([])
+  const [fallbackId, setFallbackId] = useState<string | undefined>(undefined)
+  const [creatingTableId, setCreatingTableId] = useState<string | null>(null)
+  useEffect(() => {
+    const deleteInit = sessionStorage.getItem("deletingTableIds")
+    setDeletingTableIds(deleteInit ? JSON.parse(deleteInit) as string[] : [])
+    setCreatingTableId(sessionStorage.getItem("creatingTableId"))
+  }, [])
+  useEffect(() => {
+    if (tablesData) {
+      const newDeletingTableIds = new Set(deletingTableIds)
+      const currentTableIds = new Set(tablesData.map(table => table?.id ?? ""))
+      deletingTableIds.forEach(tableId => {
+        if (!currentTableIds.has(tableId)) newDeletingTableIds.delete(tableId)
+      })
+      if (deletingTableIds.length > 0) {
+        const newDeletingTableIdsArray = [...newDeletingTableIds]
+        sessionStorage.setItem("deletingTableIds", JSON.stringify(newDeletingTableIdsArray))
+        setDeletingTableIds(newDeletingTableIdsArray)
+      }
+      if (creatingTableId) {
+        if (currentTableIds.has(creatingTableId)) {
+          setCreatingTableId(null)
+          sessionStorage.removeItem("creatingTableId")
+        }
+      }
     }
-    return 0;
-  })
-  const [creatingTable, setCreatingTable] = useState<boolean>(false)
+  }, [tablesData])
+  const [popoverOpen, setPopoverOpen] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)
   const [newName, setNewName] = useState<string>("")
   const router = useRouter()
@@ -32,14 +54,14 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
   })
   function createNewTable() {
-    if (status === "pending") return
+    if (status === "pending" || creatingTableId !== null) return
     if (baseId && tablesData) {
       let newTableNumber = 1
       while (tablesData.some(table => table?.name === `Table ${newTableNumber}`)) newTableNumber++
       const tableId = nanoid(6)
       const viewId = nanoid(6)
       addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId, tableId, viewId })
-      setCreatingTable(true)
+      sessionStorage.setItem("creatingTableId", tableId)
       router.push(`/base/${baseId}/${tableId}/${viewId}`)
     }
   }
@@ -48,10 +70,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       if (updatedBase) {
         toast.success(`Deleted table!`)
         await utils.base.getAllFromBase.invalidate()
-        const fallbackTableId = updatedBase.lastOpenedTableId
-        const fallbackTable = tablesData?.find((tableData) => tableData?.id === fallbackTableId)
-        const fallbackViewId = fallbackTable?.lastOpenedViewId
-        if (fallbackTableId && fallbackViewId) router.push(`/base/${baseId}/${fallbackTableId}/${fallbackViewId}`)
       }
     }
   })
@@ -61,8 +79,15 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       toast.error("Cannot delete only table!")
       return
     }
+    setPopoverOpen(false)
     if (baseId && tableData && tablesData.length > 1 && tablesData[0] && tablesData[1]) {
-      deleteTable({baseId, tableId: tableData.id, fallbackTableId: isFirstTable ? tablesData[1].id : tablesData[0].id })
+      const deleteTableIds = sessionStorage.getItem('deletingTableIds')
+      sessionStorage.setItem('deletingTableIds', deleteTableIds ? JSON.stringify([...(JSON.parse(deleteTableIds) as string[]), tableData.id]) : JSON.stringify([tableData.id]))
+      setDeletingTableIds([...deletingTableIds, tableData.id])
+      const fallbackTable = isFirstTable ? tablesData[1] : tablesData[0]
+      setFallbackId(fallbackTable.id)
+      router.push(`/base/${baseId}/${fallbackTable.id}/${fallbackTable.lastOpenedViewId}`,)
+      deleteTable({baseId, tableId: tableData.id, fallbackTableId: fallbackTable.id })
     }
   }
   function onClickTableTab(tableData: TableData) {
@@ -114,9 +139,14 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                     const tableName = tableData?.name
                     const isCurrentTable = currentTable?.id === tableData?.id
                     return (
-                      isCurrentTable
+                      deletingTableIds.includes(tableData?.id ?? "")
                       ?
-                        <Popover.Root key={index} onOpenChange={(open) => {
+                        <div key={index}/>
+                      :
+                      isCurrentTable || (fallbackId && tableData?.id === fallbackId)
+                      ?
+                        <Popover.Root key={index} open={popoverOpen} onOpenChange={(open) => {
+                          setPopoverOpen(open)
                           if (!open) setIsRenaming(false)
                         }}>
                           <Popover.Trigger asChild>
@@ -218,7 +248,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                   })
                 }
                 {
-                  !tablesData.some(table => table && (table.id === currentTable?.id)) || creatingTable &&
+                  creatingTableId &&
                   <button className="flex-shrink-0 h-[calc(100%+1px)] w-[90px] px-3 font-[500] text-black bg-white border-box border-t-[1px] border-r-[1px] rounded-[6px] cursor-pointer"
                     style={{
                       borderColor: "hsl(202, 10%, 88%)",
@@ -240,7 +270,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                 </button>
                 <button className="flex flex-row group items-center gap-2 px-3 cursor-pointer disabled:cursor-not-allowed"
                   onClick={createNewTable}
-                  disabled={status === "pending"}
+                  disabled={status === "pending" || creatingTableId !== null}
                 >
                   <AddTableIcon className="w-5 h-5 group-hover:text-black"/>
                   <span className="mt-[1px] group-hover:text-black">Add new table</span>
