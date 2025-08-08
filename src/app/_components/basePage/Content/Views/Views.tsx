@@ -16,9 +16,19 @@ const Views = ({ tableData, views, navToView } : { tableData: TableData, views: 
   /* 
   View configs stuff
   */
-  const { data: viewData } = api.base.getView.useQuery({ viewId: currentViewId ?? "" }, {
+  const { data: viewData, refetch } = api.base.getView.useQuery({ viewId: currentViewId ?? "" }, {
     enabled: !!tableData?.id && !!currentViewId,
   })
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refetch().then((res) => {
+        if (res.data) {
+          clearInterval(interval);
+        }
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [refetch]);
   // End configs stuff
   const [searchStr, setSearchStr] = useState<string>("")
   const { data: searchData, isFetching: searching } = api.base.searchInView.useQuery({ viewId: currentViewId ?? "", searchStr: searchStr.trim() }, {
