@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react"
-import type { RecordsData, TableData, ViewData, ViewsData } from "../../BasePage"
+import type { RecordsData, TableData, ViewsData } from "../../BasePage"
 import Header from "./Header"
 import SlidingSidebar from "./SlidingSidebar"
 import View from "./View/View"
 import * as Dialog from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { api } from "~/trpc/react"
+import { useParams } from "next/navigation"
 
-const Views = ({ tableData, views, currentView, navToView } : { tableData: TableData, views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
+const Views = ({ tableData, views, navToView } : { tableData: TableData, views: ViewsData, navToView: (viewId: string) => void }) => {
+  const {viewId} = useParams()
+  const currentViewId = viewId as string
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
   const utils = api.useUtils()
   /* 
   View configs stuff
   */
-  const { data: viewData, isFetching: fetchingView } = api.base.getView.useQuery({ viewId: currentView?.id ?? "" }, {
-    enabled: !!tableData?.id && !!currentView?.id,
+  const { data: viewData } = api.base.getView.useQuery({ viewId: currentViewId ?? "" }, {
+    enabled: !!tableData?.id && !!currentViewId,
   })
   // End configs stuff
   const [searchStr, setSearchStr] = useState<string>("")
-  const { data: searchData, isFetching: searching } = api.base.searchInView.useQuery({ viewId: currentView?.id ?? "", searchStr: searchStr.trim() }, {
-    enabled: !!tableData?.id && !!currentView?.id && searchStr.trim() !== ""
+  const { data: searchData, isFetching: searching } = api.base.searchInView.useQuery({ viewId: currentViewId ?? "", searchStr: searchStr.trim() }, {
+    enabled: !!tableData?.id && !!currentViewId && searchStr.trim() !== ""
   })
   const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null)
   const [foundIndex, setFoundIndex] = useState<number | undefined>(undefined)
@@ -72,7 +75,7 @@ const Views = ({ tableData, views, currentView, navToView } : { tableData: Table
             <VisuallyHidden>
               <Dialog.Title>Views Sidebar</Dialog.Title>
             </VisuallyHidden>
-            <SlidingSidebar views={views} currentView={currentView} navToView={navToView}/>
+            <SlidingSidebar views={views} currentView={viewData} navToView={navToView}/>
           </Dialog.Content>
           {viewData && <View tableData={tableData} view={viewData} searchStr={searchStr} foundIndex={foundIndex} foundRecords={foundRecords} searchNum={searchNum}/>}
         </div>

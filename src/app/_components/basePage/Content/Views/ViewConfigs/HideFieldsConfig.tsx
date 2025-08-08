@@ -110,7 +110,7 @@ const HideFieldsConfig = ({ viewId, fields, hiddenFieldIds } : Props) => {
           ?
             <div className="flex flex-row w-full justify-center items-center">
               <div className="flex flex-row gap-2 items-center">
-                <span>Applying changes...</span>
+                <span>Applying changes</span>
                 <LoadingIcon className="w-4 h-4 animate-spin"/>
               </div>
             </div>

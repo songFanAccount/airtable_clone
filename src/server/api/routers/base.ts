@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "../trpc"
-import { FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Filter } from "@prisma/client"
+import { $Enums, FieldType, FilterJoinType, FilterOperator, Prisma, PrismaClient, SortOperator, type Filter } from "@prisma/client"
 import { faker } from '@faker-js/faker';
 import type { RecordData } from "~/app/_components/basePage/BasePage";
 import { nanoid } from "nanoid";
@@ -428,7 +428,7 @@ export const baseRouter = createTRPCRouter({
         select: { lastAddedRecordPos: true },
       });
     
-      return await ctx.db.record.create({
+      return ctx.db.record.create({
         data: {
           id: input.newRecordId,
           rowNum: updatedTable.lastAddedRecordPos,
@@ -607,72 +607,78 @@ export const baseRouter = createTRPCRouter({
         return deleteEvent
       })
     }),
-  addFilter: protectedProcedure
-    .input(z.object({viewId: z.string(), fieldId: z.string(), fieldType: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.filter.create({data: {
-        joinType: FilterJoinType.AND,
+  updateFilters: protectedProcedure
+  .input(
+    z.object({
+      filtersToUpdate: z.array(
+        z.object({
+          id: z.string(),
+          fieldId: z.string().optional(),
+          operator: z.nativeEnum($Enums.FilterOperator).optional(),
+          joinType: z.nativeEnum($Enums.FilterJoinType).optional(),
+          compareVal: z.string().optional(),
+        })
+      ),
+      viewId: z.string(),
+      createdFilters: z.array(
+        z.object({
+          id: z.string(),
+          fieldId: z.string(),
+          operator: z.nativeEnum($Enums.FilterOperator),
+          joinType: z.nativeEnum($Enums.FilterJoinType),
+          compareVal: z.string(),
+        })
+      ),
+      deletedIds: z.array(z.string())
+    })
+  )
+  .mutation(async ({ctx, input}) => {
+    const filterUpdateDatum: Prisma.FilterUncheckedUpdateManyInput[] = input.filtersToUpdate.map(filter => {
+      const {id, fieldId, operator, joinType, compareVal} = filter
+      const filterUpdateData: Prisma.FilterUncheckedUpdateManyInput = {id}
+      if (fieldId) filterUpdateData.fieldId = fieldId
+      if (joinType) filterUpdateData.joinType = joinType
+      if (operator) filterUpdateData.operator = operator
+      if (compareVal) filterUpdateData.compareVal = compareVal
+      return filterUpdateData
+    })
+    const filterCreateDatum: Prisma.FilterCreateManyInput[] = input.createdFilters.map(filter => {
+      const {id, fieldId, operator, joinType, compareVal} = filter
+      const filterCreateData: Prisma.FilterCreateManyInput = {
+        id,
         viewId: input.viewId,
-        fieldId: input.fieldId,
-        operator: getDefaultOperator(input.fieldType as FieldType),
-        compareVal: ""
-      }})
-    }),
-  changeFilterField: protectedProcedure
-    .input(z.object({filterId: z.string(), newFieldId: z.string(), newFieldType: z.string(), sameType: z.boolean()}))
-    .mutation(async ({ctx, input}) => {
-      const newData: Prisma.FilterUpdateInput = {
-        field: {
-          connect: {
-            id: input.newFieldId
-          }
-        }
+        fieldId,
+        joinType,
+        operator,
+        compareVal
       }
-      if (!input.sameType) {
-        newData.compareVal = ""
-        const newFieldType: FieldType = input.newFieldType as FieldType
-        newData.operator = getDefaultOperator(newFieldType)
-      }
-      return ctx.db.filter.update({
-        where: {id: input.filterId},
-        data: newData
-      })
-    }),
-  changeFilterOperator: protectedProcedure
-    .input(z.object({filterId: z.string(), newOperator: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      const newOperator = input.newOperator as FilterOperator
-      const newData: Prisma.FilterUpdateInput = {
-        operator: newOperator
-      }
-      if (newOperator === FilterOperator.EMPTY || newOperator === FilterOperator.NOTEMPTY) newData.compareVal = ""
-      return ctx.db.filter.update({
-        where: {id: input.filterId},
-        data: newData
-      })
-    }),
-  changeFilterJoinType: protectedProcedure
-    .input(z.object({filterId: z.string(), newJoinType: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      const newJoinType = input.newJoinType as FilterJoinType
-      return ctx.db.filter.update({
-        where: {id: input.filterId},
-        data: {joinType: newJoinType}
-      })
-    }),
-  changeFilterCompareVal: protectedProcedure
-    .input(z.object({filterId: z.string(), newCompareVal: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.filter.update({
-        where: {id: input.filterId},
-        data: {compareVal: input.newCompareVal}
-      })
-    }),
-  deleteFilter: protectedProcedure
-    .input(z.object({filterId: z.string()}))
-    .mutation(async ({ctx, input}) => {
-      return ctx.db.filter.delete({where: {id: input.filterId}})
-    }),
+      return filterCreateData
+    })
+    type FilterUpdatePromise = ReturnType<typeof ctx.db.filter.updateMany>;
+    type FilterCreatePromise = ReturnType<typeof ctx.db.filter.createMany>;
+    const promises: (FilterUpdatePromise | FilterCreatePromise)[] = [];
+    if (filterUpdateDatum.length > 0) {
+      promises.push(
+        ...filterUpdateDatum.map((data) =>
+          ctx.db.filter.updateMany({
+            where: { id: data.id as string },
+            data
+          })
+        )
+      );
+    }
+    if (filterCreateDatum.length > 0) {
+      promises.push(
+        ctx.db.filter.createMany({ data: filterCreateDatum })
+      );
+    }
+    if (input.deletedIds.length > 0) {
+      promises.push(
+        ctx.db.filter.deleteMany({ where: { id: { in: input.deletedIds } } })
+      );
+    }
+    await Promise.all(promises);
+  }),
   addSort: protectedProcedure
     .input(z.object({viewId: z.string(), fieldId: z.string()}))
     .mutation(async ({ctx, input}) => {
@@ -705,8 +711,7 @@ export const baseRouter = createTRPCRouter({
   getRecords: protectedProcedure
     .input(z.object({viewId: z.string(), skip: z.number(), take: z.number()}))
     .query(async ({ ctx, input }) => {
-      return await ctx.db.$transaction(async (tx) => {
-        const view = await tx.view.findUniqueOrThrow({
+        const view = await ctx.db.view.findUniqueOrThrow({
           where: {id: input.viewId},
           include: {
             filters: {
@@ -719,158 +724,162 @@ export const baseRouter = createTRPCRouter({
           }
         })
         // RAWQUERY
-        // const tableId = view.tableId
-        // const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
-        // const andStrs: string[] = []
-        // const orStrs: string[] = []
-        // for (const filter of filters) {
-        //   if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
-        //   else orStrs.push(generateCellCondStr(filter))
-        // }
-        // const andClause = andStrs.length
-        //   ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
-        //   : "TRUE";
+        const tableId = view.tableId
+        const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
+        const andStrs: string[] = []
+        const orStrs: string[] = []
+        for (const filter of filters) {
+          if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
+          else orStrs.push(generateCellCondStr(filter))
+        }
+        const andClause = andStrs.length
+          ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
+          : "TRUE";
 
-        // const orClause = orStrs.length
-        //   ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
-        //   : "";
+        const orClause = orStrs.length
+          ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
+          : "";
 
-        // let filtersStr = "";
+        let filtersStr = "";
 
-        // if (andStrs.length && orStrs.length) {
-        //   filtersStr = `
-        //     (r."tableId" = '${tableId}' AND (${andClause}))
-        //     OR
-        //     (r."tableId" = '${tableId}' AND (${orClause}))
-        //   `;
-        // } else {
-        //   filtersStr = andStrs.length 
-        //     ? `r."tableId" = '${tableId}' AND (${andClause})`
-        //     :
-        //       orStrs.length
-        //       ? `r."tableId" = '${tableId}' AND (${orClause})`
-        //       : `r."tableId" = '${tableId}'`
-        // }
-        // const sorts = view.sorts
-        // const sortClauses = sorts.map(
-        //   sort => `
-        //     (
-        //       SELECT ${sort.field.type === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
-        //       FROM "Cell" fc
-        //       WHERE fc."recordId" = r.id
-        //         AND fc."fieldId" = '${sort.fieldId}'
-        //       LIMIT 1
-        //     ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
-        //   `
-        // );
+        if (andStrs.length && orStrs.length) {
+          filtersStr = `
+            (r."tableId" = '${tableId}' AND (${andClause}))
+            OR
+            (r."tableId" = '${tableId}' AND (${orClause}))
+          `;
+        } else {
+          filtersStr = andStrs.length 
+            ? `r."tableId" = '${tableId}' AND (${andClause})`
+            :
+              orStrs.length
+              ? `r."tableId" = '${tableId}' AND (${orClause})`
+              : `r."tableId" = '${tableId}'`
+        }
+        const sorts = view.sorts
+        const sortClauses = sorts.map(
+          sort => `
+            (
+              SELECT ${sort.field.type === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
+              FROM "Cell" fc
+              WHERE fc."recordId" = r.id
+                AND fc."fieldId" = '${sort.fieldId}'
+              LIMIT 1
+            ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
+          `
+        );
         
-        // const orderByClause = sortClauses.length
-        //   ? `${sortClauses.join(', ')}, r."rowNum" ASC`
-        //   : 'r."rowNum" ASC';
+        const orderByClause = sortClauses.length
+          ? `${sortClauses.join(', ')}, r."rowNum" ASC`
+          : 'r."rowNum" ASC';
 
-        // const countQueryStr = `
-        //   SELECT COUNT(DISTINCT r.id) AS total_records
-        //   FROM "Record" r
-        //   INNER JOIN "Cell" c ON r.id = c."recordId"
-        //   INNER JOIN "Field" f ON c."fieldId" = f.id
-        //   WHERE ${filtersStr};
-        // `;
+        const countQueryStr = `
+          SELECT COUNT(DISTINCT r.id) AS total_records
+          FROM "Record" r
+          INNER JOIN "Cell" c ON r.id = c."recordId"
+          INNER JOIN "Field" f ON c."fieldId" = f.id
+          WHERE ${filtersStr};
+        `;
 
-        // const [result] = await tx.$queryRawUnsafe<{ total_records: number }[]>(countQueryStr);
-        // const totalRecordsInView = Number(result?.total_records ?? 0)
-
-        // const queryStr = `
-        //   SELECT
-        //     r.id AS id,
-        //     r."tableId" AS "tableId",
-        //     r."rowNum" AS "rowNum",
-        //     json_agg(
-        //       json_build_object(
-        //         'id', c.id,
-        //         'value', c.value,
-        //         'fieldId', f.id,
-        //         'recordId', r.id
-        //       ) ORDER BY f."columnNumber"
-        //     ) AS cells
-        //   FROM "Record" r
-        //   INNER JOIN "Cell" c ON r.id = c."recordId"
-        //   INNER JOIN "Field" f ON c."fieldId" = f.id
-        //   WHERE ${filtersStr}
-        //   GROUP BY r.id, r."rowNum", r."tableId"
-        //   ORDER BY ${orderByClause}
-        //   LIMIT ${input.take}
-        //   OFFSET ${input.skip};
-        // `;
-        // const records = await tx.$queryRawUnsafe<RecordData[]>(queryStr);
+        const [result] = await ctx.db.$queryRawUnsafe<{ total_records: number }[]>(countQueryStr);
+        const totalRecordsInView = Number(result?.total_records ?? 0)
+        if (totalRecordsInView === 0) {
+          return {
+            records: [],
+            totalRecordsInView
+          }
+        }
+        const queryStr = `
+          SELECT
+            r.id AS id,
+            r."tableId" AS "tableId",
+            r."rowNum" AS "rowNum",
+            json_agg(
+              json_build_object(
+                'id', c.id,
+                'value', c.value,
+                'fieldId', f.id,
+                'recordId', r.id
+              ) ORDER BY f."columnNumber"
+            ) AS cells
+          FROM "Record" r
+          INNER JOIN "Cell" c ON r.id = c."recordId"
+          INNER JOIN "Field" f ON c."fieldId" = f.id
+          WHERE ${filtersStr}
+          GROUP BY r.id, r."rowNum", r."tableId"
+          ORDER BY ${orderByClause}
+          LIMIT ${input.take}
+          OFFSET ${input.skip};
+        `;
+        const records = await ctx.db.$queryRawUnsafe<RecordData[]>(queryStr, {maxWait: 2000000, timeout: 6000000});
 
         // TRPC
-        const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
-        const fieldFilters: Record<string, FilterWithField[]> = {}
-        filters.forEach(filter => {
-          if (fieldFilters[filter.fieldId]) fieldFilters[filter.fieldId]?.push(filter)
-          else fieldFilters[filter.fieldId] = [filter]
-        })
-        const filterConditions: Prisma.RecordWhereInput[] = []
-        for (const [fieldId, filters] of Object.entries(fieldFilters)) {
-          if (!filters[0]) continue
-          const andConditions: Prisma.CellWhereInput[] = []
-          const orConditions: Prisma.CellWhereInput[] = []
-          for (const filter of filters) {
-            if (filter.joinType === FilterJoinType.AND)
-              andConditions.push(generateCellWhereCondition(filter))
-            else
-              orConditions.push(generateCellWhereCondition(filter))
-          }
-          // If there are OR conditions for this field
-          if (orConditions.length > 0) {
-            filterConditions.push({
-              cells: {
-                some: {
-                  fieldId,
-                  OR: orConditions
-                }
-              }
-            })
-          }
-          // If there are AND conditions for this field
-          if (andConditions.length > 0) {
-            filterConditions.push({
-              cells: {
-                some: {
-                  fieldId,
-                  AND: andConditions
-                }
-              }
-            })
-          }
-        }
-        const whereCond: Prisma.RecordWhereInput = {
-          tableId: view.tableId,
-        }
-        if (filterConditions.length > 0) whereCond.OR = filterConditions
-        const totalRecordsInView = await tx.record.count({
-          where: whereCond,
-        })
+        // const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
+        // const fieldFilters: Record<string, FilterWithField[]> = {}
+        // filters.forEach(filter => {
+        //   if (fieldFilters[filter.fieldId]) fieldFilters[filter.fieldId]?.push(filter)
+        //   else fieldFilters[filter.fieldId] = [filter]
+        // })
+        // const filterConditions: Prisma.RecordWhereInput[] = []
+        // for (const [fieldId, filters] of Object.entries(fieldFilters)) {
+        //   if (!filters[0]) continue
+        //   const andConditions: Prisma.CellWhereInput[] = []
+        //   const orConditions: Prisma.CellWhereInput[] = []
+        //   for (const filter of filters) {
+        //     if (filter.joinType === FilterJoinType.AND)
+        //       andConditions.push(generateCellWhereCondition(filter))
+        //     else
+        //       orConditions.push(generateCellWhereCondition(filter))
+        //   }
+        //   // If there are OR conditions for this field
+        //   if (orConditions.length > 0) {
+        //     filterConditions.push({
+        //       cells: {
+        //         some: {
+        //           fieldId,
+        //           OR: orConditions
+        //         }
+        //       }
+        //     })
+        //   }
+        //   // If there are AND conditions for this field
+        //   if (andConditions.length > 0) {
+        //     filterConditions.push({
+        //       cells: {
+        //         some: {
+        //           fieldId,
+        //           AND: andConditions
+        //         }
+        //       }
+        //     })
+        //   }
+        // }
+        // const whereCond: Prisma.RecordWhereInput = {
+        //   tableId: view.tableId,
+        // }
+        // if (filterConditions.length > 0) whereCond.OR = filterConditions
+        // const totalRecordsInView = await tx.record.count({
+        //   where: whereCond,
+        // })
 
-        const records = await tx.record.findMany({
-          where: whereCond,
-          include: {
-            cells: {
-              where: {fieldId: {notIn: view.hiddenFieldIds}},
-              include: {field: true}
-            }
-          },
-          orderBy: [
-            {rowNum: 'asc'},
-          ],
-          skip: input.skip,
-          take: input.take
-        })
+        // const records = await tx.record.findMany({
+        //   where: whereCond,
+        //   include: {
+        //     cells: {
+        //       where: {fieldId: {notIn: view.hiddenFieldIds}},
+        //       include: {field: true}
+        //     }
+        //   },
+        //   orderBy: [
+        //     {rowNum: 'asc'},
+        //   ],
+        //   skip: input.skip,
+        //   take: input.take
+        // })
         return {
           totalRecordsInView,
           records,
         }
-      }, {maxWait: 2000000, timeout: 6000000})
     }),
   searchInView: protectedProcedure
     .input(z.object({viewId: z.string(), searchStr: z.string()}))

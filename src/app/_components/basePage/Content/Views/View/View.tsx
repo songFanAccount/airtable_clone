@@ -1,5 +1,6 @@
 import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
+import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
 import Record from "./Record"
 import { api } from "~/trpc/react";
@@ -15,16 +16,26 @@ import {
 } from '@tanstack/react-table'
 import { nanoid } from "nanoid";
 
+function useDebounced<T>(value: T, delay = 120) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
   const [totalNumRows, setTotalNumRows] = useState<number>(0)
-  const [newRecords, setNewRecords] = useState<string[]>([])
 
   // Virtualization
   const rowVirtualizer = useVirtualizer({
-    count: totalNumRows + newRecords.length,
+    count: totalNumRows,
     getScrollElement: () => ref.current,
     estimateSize: () => 32,
     overscan: 40
@@ -32,29 +43,17 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const virtualRows = rowVirtualizer.getVirtualItems()
   const startIndex = virtualRows[0]?.index ?? 0
   const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
-  
+  const dStart = useDebounced(startIndex)
+  const dTake  = 150
   const [numFetches, setNumFetches] = useState<number>(0)
-  const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
-    { viewId: view?.id ?? "", skip: startIndex, take: totalNumRows === 0 ? 0 : endIndex - startIndex + 1 },
-    { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData }
-  )
-  const [initPolling, setInitPolling] = useState(true)
   const [polling, setPolling] = useState(false);
+  const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
+    { viewId: view?.id ?? "", skip: dStart, take: dTake },
+    { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData, refetchInterval: polling ? 500 : false },
+  )
   useEffect(() => {
-    if (!polling && !initPolling) return;
-    const interval = setInterval(() => {
-      void refetch().then((res) => {
-        if (res.data) {
-          clearInterval(interval);
-          setInitPolling(false);
-        }
-      });
-    }, 500);
-    return () => clearInterval(interval);
-  }, [refetch, initPolling, polling, numFetches]);
-  useEffect(() => {
-    if (view) void utils.base.getRecords.invalidate();
-  }, [view, utils, tableData?.id]);
+    if (view) void refetch();
+  }, [view]);
 
   const records = recordsObj?.records
   const viewNumRecords = recordsObj?.totalRecordsInView
@@ -69,11 +68,10 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const [recordsCache, setRecordsCache] = useState<Cache | undefined>(undefined)
   useEffect(() => {
     if (!isFetching) {
-      setRecordsCache({ data: records, startIndex, endIndex })
+      setRecordsCache({ data: records, startIndex: dStart, endIndex: dStart + dTake })
       setNumFetches(numFetches + 1)
-      setNewRecords([])
     }
-  }, [isFetching, records, startIndex, endIndex])
+  }, [isFetching])
 
   // Table setup
   const columns: ColumnDef<RecordData>[] = includedFields?.map(field => ({
@@ -100,7 +98,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async (_) => {
-      await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
   })
@@ -109,7 +106,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     const newRecordId = nanoid(10)
     if (tableData && fields) {
       addRecord({ tableId: tableData.id, newRecordId })
-      setNewRecords([...newRecords, newRecordId])
     }
   }
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
@@ -132,7 +128,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
         isLoading: false,
         autoClose: 3000,
       });
-      await utils.base.getAllFromBase.invalidate();
       await utils.base.getRecords.invalidate();
     },
     onError: (err, _vars, ctx) => {
@@ -146,8 +141,8 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       setStartTime(undefined);
     },
   });
-  const xs = [10, 100, 100000]
-  const xsStr = ["10", "100", "100k"]
+  const xs = [10, 100, 1000, 100000]
+  const xsStr = ["10", "100", "1000", "100k"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
     if (tableData) {
@@ -158,7 +153,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const { mutate: deleteRecords, status: deleteStatus } = api.base.deleteRecords.useMutation({
     onSuccess: async (deleteInfo) => {
       toast.success(`Deleted ${deleteInfo.count} record${deleteInfo.count > 1 ? "s" : ""}!`)
-      await utils.base.getAllFromBase.invalidate()
       await utils.base.getRecords.invalidate()
     }
   })
@@ -169,6 +163,20 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
 
   // Refs and filters
   const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const popover = document.querySelector('[data-popover="true"]');
+      if (ref.current && !ref.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
+        setMainSelectedCell(undefined)
+        setSelectedRecordIds([])
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   const headingsRef = useRef<HTMLDivElement>(null)
   const recordRef = useRef<HTMLDivElement>(null)
 
@@ -277,8 +285,8 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                 const record =
                   (isFetching && recordsCache)
                     ? recordsCache.data?.[absoluteIndex - recordsCache.startIndex]
-                    : records?.[absoluteIndex - startIndex];
-                const startI = isFetching && recordsCache ? recordsCache.startIndex : startIndex
+                    : records?.[absoluteIndex - dStart];
+                const startI = isFetching && recordsCache ? recordsCache.startIndex : dStart
                 const row = record && table
                   .getRowModel()
                   .rows[absoluteIndex - startI]!
@@ -362,11 +370,11 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                 <span className="mx-[6px]">Add one empty row</span>
               </div>
               <div className="ml-[6px] flex flex-row items-center gap-2 truncate">
-                {/* {isFetching && (
+                {isFetching && (
                   <div className="flex flex-row items-center h-full flex-shrink-0">
                     <LoadingIcon className="w-4 h-4 animate-spin" />
                   </div>
-                )} */}
+                )}
                 <span className="flex-1 truncate pr-[6px]">{bottomMsg}</span>
               </div>
             </button>

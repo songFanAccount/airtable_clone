@@ -107,7 +107,7 @@ export type CellData = {
 }
 
 const BasePage = () => {
-  const { baseId, tableId, viewId } = useParams()
+  const { baseId, tableId } = useParams()
   const router = useRouter()
   const { data: session, status } = useSession()
   const { data: baseData, refetch } = api.base.getAllFromBase.useQuery({ id: baseId as string }, {
@@ -126,7 +126,6 @@ const BasePage = () => {
   }, [refetch])
   const tableData = baseData?.tables.find((table) => table.id === tableId)
   const tableViews = tableData?.views
-  const viewData = tableData?.views.find((view) => view.id === viewId)
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/")
@@ -144,7 +143,7 @@ const BasePage = () => {
       <Sidebar/>
       <div className="flex flex-col h-full w-full overflow-x-hidden">
         <Header baseId={baseData?.id} baseName={baseData?.name}/>
-        <Content baseData={baseData} currentTable={tableData} views={tableViews} currentView={viewData} />
+        <Content baseData={baseData} currentTable={tableData} views={tableViews} />
       </div>
     </div>
   )

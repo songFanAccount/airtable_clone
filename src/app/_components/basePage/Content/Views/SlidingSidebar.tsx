@@ -175,7 +175,7 @@ const ViewButton = ({ views, viewData, isCurrent, navToView, onlyView } : { view
     </Popover.Root>
   )
 }
-const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, currentView: ViewData, navToView: (viewId: string) => void }) => {
+const SlidingSidebar = ({ views, currentView, navToView } : { views: ViewsData, currentView: ViewData | null, navToView: (viewId: string) => void }) => {
   const {viewId} = useParams()
   const utils = api.useUtils()
   const { mutate: createView, status } = api.base.addNewView.useMutation({
