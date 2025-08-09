@@ -268,7 +268,11 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const bottomMsg = `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}.`
 
   return (
-    <div className="w-full h-full text-[13px] bg-[#f6f8fc]">
+    <div className="relative w-full h-full text-[13px] bg-[#f6f8fc]">
+      {addXRecordsStatus === "pending" && (
+        <div className="absolute inset-0 bg-gray-400 opacity-20 z-50 flex items-center justify-center pointer-events-auto cursor-not-allowed">
+        </div>
+      )}
       <div className="flex flex-col h-full w-full pb-19 relative">
         <div ref={headingsRef}>
           <ColumnHeadings

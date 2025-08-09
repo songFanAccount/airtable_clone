@@ -9,10 +9,30 @@ import type { TableData, TablesData } from "../BasePage";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tablesData: TablesData, currentTable: TableData }) => {
+  const [deletingTableIds, setDeletingTableIds] = useState<string[]>([])
   const [fallbackId, setFallbackId] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    const deleteInit = sessionStorage.getItem("deletingTableIds")
+    setDeletingTableIds(deleteInit ? JSON.parse(deleteInit) as string[] : [])
+  }, [])
+  useEffect(() => {
+    if (tablesData) {
+      const newDeletingTableIds = new Set(deletingTableIds)
+      const currentTableIds = new Set(tablesData.map(table => table?.id ?? ""))
+      deletingTableIds.forEach(tableId => {
+        if (!currentTableIds.has(tableId)) newDeletingTableIds.delete(tableId)
+      })
+      if (deletingTableIds.length > 0) {
+        const newDeletingTableIdsArray = [...newDeletingTableIds]
+        sessionStorage.setItem("deletingTableIds", JSON.stringify(newDeletingTableIdsArray))
+        setDeletingTableIds(newDeletingTableIdsArray)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tablesData])
   const [popoverOpen, setPopoverOpen] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)
   const [newName, setNewName] = useState<string>("")
@@ -34,6 +54,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
       const tableId = nanoid(6)
       const viewId = nanoid(6)
       addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId, tableId, viewId })
+      sessionStorage.setItem("creatingTableId", tableId)
       router.push(`/base/${baseId}/${tableId}/${viewId}`)
     }
   }
@@ -53,6 +74,9 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
     setPopoverOpen(false)
     if (baseId && tableData && tablesData.length > 1 && tablesData[0] && tablesData[1]) {
+      const deleteTableIds = sessionStorage.getItem('deletingTableIds')
+      sessionStorage.setItem('deletingTableIds', deleteTableIds ? JSON.stringify([...(JSON.parse(deleteTableIds) as string[]), tableData.id]) : JSON.stringify([tableData.id]))
+      setDeletingTableIds([...deletingTableIds, tableData.id])
       const fallbackTable = isFirstTable ? tablesData[1] : tablesData[0]
       setFallbackId(fallbackTable.id)
       router.push(`/base/${baseId}/${fallbackTable.id}/${fallbackTable.lastOpenedViewId}`,)
@@ -108,6 +132,10 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                     const tableName = tableData?.name
                     const isCurrentTable = currentTable?.id === tableData?.id
                     return (
+                      deletingTableIds.includes(tableData?.id ?? "")
+                      ?
+                        <div key={index}/>
+                      :
                       isCurrentTable || (fallbackId && tableData?.id === fallbackId)
                       ?
                         <Popover.Root key={index} open={popoverOpen} onOpenChange={(open) => {
