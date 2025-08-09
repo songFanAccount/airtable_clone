@@ -27,7 +27,7 @@ interface CellProps {
   onCellChange: (newValue: string) => void,
   multipleRecordsSelected: boolean,
   onDelete: () => void,
-  onTab: (direction: -1 | 1) => void
+  onTab: (direction: -1 | 1) => void,
 }
 
 const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
@@ -176,10 +176,11 @@ interface RecordProps {
   onSelect: () => void,
   isSelected: boolean,
   multipleRecordsSelected: boolean,
-  onDeleteRecord: () => void
+  onDeleteRecord: () => void,
+  refetch: () => void
 }
 
-const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord } : RecordProps) => {
+const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord, refetch } : RecordProps) => {
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
   const [recordData, setRecordData] = useState<Record<string, string>>({})
   useEffect(() => {
@@ -197,19 +198,18 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
   const [isHovered, setIsHovered] = useState<boolean>(false)
   const active = isHovered || isSelectedRow
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
-  const utils = api.useUtils()
   const { mutate: updateCell } = api.base.updateCell.useMutation({
     onSuccess: async (updatedCell) => {
       if (updatedCell) {
         const { cell, isNewCell } = updatedCell
         if (isNewCell || activeFilterFieldIds.includes(cell.fieldId) || sortedFieldIds.includes(cell.fieldId)) {
-          await utils.base.getRecords.invalidate()
+          refetch()
         }
       }
     }
   })
   function onRecordChange(updateIds: {cellId?: string, recordId?: string, fieldId?: string}, newValue: string, type: FieldType) {
-    setRecordData(prev => ({...prev, fieldId: newValue}));
+    setRecordData(prev => ({...prev, [updateIds.fieldId!]: newValue}));
     if (timer) clearTimeout(timer)
     const newTimer = setTimeout(() => {
       updateCell({...updateIds, newValue, type})

@@ -39,7 +39,7 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
     {Icon: HideIcon, bgColor: numHidden > 0 ? "#c4ecff" : undefined, outlineColor: numHidden > 0 ? "#b0d4e5" : undefined, text: numHidden > 0 ? `${numHidden} hidden field${numHidden > 1 ? "s" : ""}` : "Hide fields", popoverWidth: 320},
     {Icon: FilterIcon, bgColor: activeFilterNames.length > 0 ? "#cff5d1" : undefined, outlineColor: activeFilterNames.length > 0 ? "#badcbc" : undefined, text: filterText},
     {Icon: GroupIcon, text: "Group", popoverWidth: 280},
-    {Icon: SortIcon, bgColor: sorts && sorts.length > 0 ? "#fedfcb" : undefined, outlineColor: sorts && sorts.length > 0 ? "#e4c8b6" : undefined, text: sortText, popoverWidth: sorts && sorts.length > 0 ? 480 : 320},
+    {Icon: SortIcon, bgColor: sorts && sorts.length > 0 ? "#fedfcb" : undefined, outlineColor: sorts && sorts.length > 0 ? "#e4c8b6" : undefined, text: sortText, popoverWidth: sorts && sorts.length > 0 ? 480 : undefined},
     {Icon: ColorIcon, text: "Color", popoverWidth: 300},
     {Icon: HeightIcon, popoverWidth: 128},
     {Icon: ShareIcon, text: "Share and sync", size: "12px", popoverWidth: 424},
@@ -90,7 +90,8 @@ const ViewConfigs = ({ view, fields } : { view: ViewDetailedData, fields: Fields
                   className="bg-white rounded-[6px] w-fit p-4 z-50 relative top-2 left-0 text-[13px]"
                   style={{
                     boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
-                    width: `${popoverWidth}px`
+                    width: popoverWidth ? `${popoverWidth}px` : 'fit-content',
+                    minWidth: "240px"
                   }}
                 >
                   {

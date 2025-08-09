@@ -71,6 +71,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     if (!isFetching) {
       setRecordsCache({ data: records, startIndex: dStart, endIndex: dStart + dTake })
       setNumFetches(numFetches + 1)
+      setMainSelectedCell(undefined)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFetching])
@@ -321,6 +322,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                           if (deleteStatus === "pending") return;
                           onDeleteSelectedRecords(record.id);
                         }}
+                        refetch={() => refetch()}
                       />
                     ) : (
                       <div

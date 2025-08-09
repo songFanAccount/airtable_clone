@@ -2,6 +2,7 @@ import { FieldType, SortOperator } from "@prisma/client"
 import type { FieldsData, SortData } from "../../../BasePage"
 import { ImTextColor as TextTypeIcon } from "react-icons/im";
 import { FaHashtag as NumberTypeIcon } from "react-icons/fa";
+import { Loader2 as LoadingIcon } from "lucide-react";
 import { api } from "~/trpc/react";
 import * as Popover from "@radix-ui/react-popover";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -246,15 +247,24 @@ const SortsConfig = ({ viewId, fields, sorts } : Props) => {
                 </Popover.Root>
               }
               {
-                hasUpdates &&
-                <button className="flex justify-center items-center h-7 px-3 border rounded-[6px] hover:bg-black hover:text-white cursor-pointer"
-                  style={{
-                    borderColor: "hsl(202, 10%, 88%)",
-                  }}
-                  onClick={onUpdateSorts}
-                  >
-                  <span className="text-[13px]">Apply sorts</span>
-                </button>
+                updatingSorts
+                ?
+                <div className="flex flex-row gap-2 items-center">
+                  <div className="flex flex-row gap-2 items-center">
+                    <span className="text-[12px]">Applying changes</span>
+                    <LoadingIcon className="w-4 h-4 animate-spin"/>
+                  </div>
+                </div>
+                : 
+                  hasUpdates &&
+                  <button className="flex justify-center items-center h-7 px-3 border rounded-[6px] hover:bg-black hover:text-white cursor-pointer"
+                    style={{
+                      borderColor: "hsl(202, 10%, 88%)",
+                    }}
+                    onClick={onUpdateSorts}
+                    >
+                    <span className="text-[13px]">Apply sorts</span>
+                  </button>
               }
             </div>
           </div>
