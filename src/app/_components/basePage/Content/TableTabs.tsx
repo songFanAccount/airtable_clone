@@ -9,38 +9,10 @@ import type { TableData, TablesData } from "../BasePage";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { nanoid } from "nanoid";
 const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tablesData: TablesData, currentTable: TableData }) => {
-  const [deletingTableIds, setDeletingTableIds] = useState<string[]>([])
   const [fallbackId, setFallbackId] = useState<string | undefined>(undefined)
-  const [creatingTableId, setCreatingTableId] = useState<string | null>(null)
-  useEffect(() => {
-    const deleteInit = sessionStorage.getItem("deletingTableIds")
-    setDeletingTableIds(deleteInit ? JSON.parse(deleteInit) as string[] : [])
-    setCreatingTableId(sessionStorage.getItem("creatingTableId"))
-  }, [])
-  useEffect(() => {
-    if (tablesData) {
-      const newDeletingTableIds = new Set(deletingTableIds)
-      const currentTableIds = new Set(tablesData.map(table => table?.id ?? ""))
-      deletingTableIds.forEach(tableId => {
-        if (!currentTableIds.has(tableId)) newDeletingTableIds.delete(tableId)
-      })
-      if (deletingTableIds.length > 0) {
-        const newDeletingTableIdsArray = [...newDeletingTableIds]
-        sessionStorage.setItem("deletingTableIds", JSON.stringify(newDeletingTableIdsArray))
-        setDeletingTableIds(newDeletingTableIdsArray)
-      }
-      if (creatingTableId) {
-        if (currentTableIds.has(creatingTableId)) {
-          setCreatingTableId(null)
-          sessionStorage.removeItem("creatingTableId")
-        }
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tablesData])
   const [popoverOpen, setPopoverOpen] = useState<boolean>(false)
   const [isRenaming, setIsRenaming] = useState<boolean>(false)
   const [newName, setNewName] = useState<string>("")
@@ -55,14 +27,13 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
   })
   function createNewTable() {
-    if (status === "pending" || creatingTableId !== null) return
+    if (status === "pending") return
     if (baseId && tablesData) {
       let newTableNumber = 1
       while (tablesData.some(table => table?.name === `Table ${newTableNumber}`)) newTableNumber++
       const tableId = nanoid(6)
       const viewId = nanoid(6)
       addNewTable({ newName: `Table ${newTableNumber}`, baseId: baseId, tableId, viewId })
-      sessionStorage.setItem("creatingTableId", tableId)
       router.push(`/base/${baseId}/${tableId}/${viewId}`)
     }
   }
@@ -82,9 +53,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
     }
     setPopoverOpen(false)
     if (baseId && tableData && tablesData.length > 1 && tablesData[0] && tablesData[1]) {
-      const deleteTableIds = sessionStorage.getItem('deletingTableIds')
-      sessionStorage.setItem('deletingTableIds', deleteTableIds ? JSON.stringify([...(JSON.parse(deleteTableIds) as string[]), tableData.id]) : JSON.stringify([tableData.id]))
-      setDeletingTableIds([...deletingTableIds, tableData.id])
       const fallbackTable = isFirstTable ? tablesData[1] : tablesData[0]
       setFallbackId(fallbackTable.id)
       router.push(`/base/${baseId}/${fallbackTable.id}/${fallbackTable.lastOpenedViewId}`,)
@@ -140,10 +108,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                     const tableName = tableData?.name
                     const isCurrentTable = currentTable?.id === tableData?.id
                     return (
-                      deletingTableIds.includes(tableData?.id ?? "")
-                      ?
-                        <div key={index}/>
-                      :
                       isCurrentTable || (fallbackId && tableData?.id === fallbackId)
                       ?
                         <Popover.Root key={index} open={popoverOpen} onOpenChange={(open) => {
@@ -248,22 +212,6 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                     )
                   })
                 }
-                {
-                  creatingTableId &&
-                  <button className="flex-shrink-0 h-[calc(100%+1px)] w-[90px] px-3 font-[500] text-black bg-white border-box border-t-[1px] border-r-[1px] rounded-[6px] cursor-pointer"
-                    style={{
-                      borderColor: "hsl(202, 10%, 88%)",
-                      borderLeftWidth: tablesData ? "1px" : 0,
-                      borderTopLeftRadius: tablesData ? "6px" : 0,
-                      borderBottomLeftRadius: 0,
-                      borderBottomRightRadius: 0,
-                    }}
-                  >
-                    <div className="flex flex-row items-center">
-                      <LoadingIcon className="w-4 h-4 animate-spin"/>
-                    </div>
-                  </button>
-                }
               </div>
               <div className="flex flex-row items-center flex-shrink-0">
                 <button className="mx-3 cursor-pointer" onClick={toastNoUI}>
@@ -271,7 +219,7 @@ const TableTabs = ({ baseId, tablesData, currentTable } : { baseId?: string, tab
                 </button>
                 <button className="flex flex-row group items-center gap-2 px-3 cursor-pointer disabled:cursor-not-allowed"
                   onClick={createNewTable}
-                  disabled={status === "pending" || creatingTableId !== null}
+                  disabled={status === "pending"}
                 >
                   <AddTableIcon className="w-5 h-5 group-hover:text-black"/>
                   <span className="mt-[1px] group-hover:text-black">Add new table</span>
