@@ -81,6 +81,12 @@ function generateCellCondStr(filter: FilterData, fieldType: FieldType): string {
           `;
         case FilterOperator.EMPTY:
           return `
+            NOT EXISTS (
+              SELECT 1 FROM "Cell" fc
+              WHERE fc."recordId" = r.id
+              AND fc."fieldId"  = '${id}'
+            )
+            OR
             EXISTS (
               SELECT 1
               FROM "Cell" fc
