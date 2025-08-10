@@ -146,7 +146,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const startIndex = virtualRows[0]?.index ?? 0
   const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
   const dStart = useDebounced(startIndex)
-  const dTake  = useDebounced(endIndex - startIndex + 1)
+  const dTake  = useDebounced(endIndex === 0 ? 0 : endIndex - startIndex + 1)
   const [numFetches, setNumFetches] = useState<number>(0)
   const [filtersStr, setFiltersStr] = useState<string | undefined>(undefined)
   const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
@@ -227,7 +227,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     if (!isFetching) {
       setRecordsCache({ data: records, startIndex: dStart, endIndex: dStart + dTake })
       setNumFetches(numFetches + 1)
-      setMainSelectedCell(undefined)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFetching])
@@ -466,6 +465,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                     {record && fields && row ? (
                       <Record
                         row={row}
+                        totalNumRows={totalNumRows}
                         fields={includedFields}
                         activeFilterFieldIds={activeFilterFieldIds}
                         sortedFieldIds={sortedFieldIds}

@@ -9,6 +9,7 @@ import { api } from "~/trpc/react";
 import type { Row } from '@tanstack/react-table';
 
 function isNumber(str: string): boolean {
+  if (str === "") return true
   return /^[0-9]+(\.[0-9]+)?$/.test(str);
 }
 
@@ -28,9 +29,10 @@ interface CellProps {
   multipleRecordsSelected: boolean,
   onDelete: () => void,
   onTab: (direction: -1 | 1) => void,
+  onArrowKey: (arrow: "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown") => void
 }
 
-const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab } : CellProps) => {
+const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelectedRow, isFiltered, isSortedBy, isSearchFound, isSearchSelected, onClick, onCellChange, multipleRecordsSelected, onDelete, onTab, onArrowKey } : CellProps) => {
   const [actionsOpen, setActionsOpen] = useState<boolean>(false)
   const [editing, setEditing] = useState<boolean>(false)
   const [newValue, setNewValue] = useState<string>(value ?? "")
@@ -53,12 +55,21 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
   }
   function onKeyDown(event: KeyboardEvent)  {
     const key = event.key
-    if (isSelected && key === "Tab") {
-      event.preventDefault()
-      if (inputRef.current) inputRef.current.blur()
-      setEditing(false)
-      const direction = event.shiftKey ? -1 : 1
-      onTab(direction)
+    if (isSelected) {
+      if (key === "Tab") {
+        event.preventDefault()
+        if (inputRef.current) inputRef.current.blur()
+        setEditing(false)
+        const direction = event.shiftKey ? -1 : 1
+        onTab(direction)
+        return
+      } else {
+        const arrowKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]
+        if (arrowKeys.includes(key)) {
+          event.preventDefault()
+          onArrowKey(key as ("ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown"))
+        }
+      }
     }
     if (editing || !isSelected) return
     const ok = field.type === FieldType.Text || (field.type === FieldType.Number && isNumber(key))
@@ -75,7 +86,7 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
   return (
     <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
       <Popover.Anchor asChild>
-        <div className="relative flex flex-row justify-between items-center hover:[background-color:var(--hover-color)!important] w-[180px] h-full"
+        <div className="relative flex flex-row justify-between border-box items-center hover:[background-color:var(--hover-color)!important] w-[180px] h-full"
           style={{
             backgroundColor:
               isSearchSelected
@@ -118,11 +129,13 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            className="w-full outline-none p-[6px]"
+            className="w-full outline-none p-[6px] relative"
             style={{
               cursor: editing ? "text" : "default",
               color: "rgb(29, 31, 37)",
-              textAlign: field && field.type === FieldType.Text ? "start" : "end"
+              textAlign: field && field.type === FieldType.Text ? "start" : "end",
+              left: isSelected && mainSelectedCell?.[1] !== 1 && field.type === FieldType.Text ? "-2px" : 0,
+              paddingRight: field.type === FieldType.Text ? "6px" : (isSelected && !isFirst) ? "5px" : "6px",
             }}
           />
           {
@@ -164,7 +177,8 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
 }
 
 interface RecordProps {
-  row: Row<RecordData>, 
+  row: Row<RecordData>,
+  totalNumRows: number,
   fields: FieldsData,
   activeFilterFieldIds: string[],
   sortedFieldIds: string[],
@@ -180,7 +194,7 @@ interface RecordProps {
   refetch: () => void
 }
 
-const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord, refetch } : RecordProps) => {
+const Record = ({ row, totalNumRows, fields, activeFilterFieldIds, sortedFieldIds, foundCells, currentCell, rowNum, mainSelectedCell, setMainSelectedCell, isSelected, onSelect, multipleRecordsSelected, onDeleteRecord, refetch } : RecordProps) => {
   const foundFieldIds = foundCells?.map(cell => cell.fieldId)
   const [recordData, setRecordData] = useState<Record<string, string>>({})
   useEffect(() => {
@@ -216,12 +230,44 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
     }, 1000)
     setTimer(newTimer)
   }
-  function onTab(direction: -1 | 1) {
+  function onTab(direction: -1 | 1, canChangeRows=true) {
     if (mainSelectedCell && fields) {
       const numFields = fields.length
       const colIndex = mainSelectedCell[1]
-      const canMove = direction === 1 ? colIndex < numFields - 1 : colIndex > 0
-      if (canMove) setMainSelectedCell([mainSelectedCell[0], colIndex + direction])
+      const colWithDirection = colIndex + direction
+      const canMove = (canChangeRows && ((colWithDirection < 0 && rowNum > 1) || (colWithDirection >= numFields && rowNum < totalNumRows))) || (colWithDirection >= 0 && colWithDirection < numFields)
+      if (!canMove) return
+      const newSelectedCell: [number, number] =
+        colWithDirection < 0 ? [rowNum-2, numFields-1] :
+        colWithDirection >= numFields ? [rowNum, 0] :
+        [rowNum-1, colWithDirection]
+      setMainSelectedCell(newSelectedCell)
+    }
+  }
+  function onArrowKey(arrow: "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown") {
+    let vertDir: 1 | -1 | undefined = undefined
+    switch (arrow) {
+      case "ArrowLeft":
+        onTab(-1, false)
+        break
+      case "ArrowRight":
+        onTab(1, false)
+        break
+      case "ArrowUp":
+        vertDir = -1
+        break
+      case "ArrowDown":
+        vertDir = 1
+        break
+      default:
+        break
+    }
+    if (vertDir && mainSelectedCell) {
+      const rowWithDirection = mainSelectedCell[0]+vertDir
+      const canMove = rowWithDirection >= 0 && rowWithDirection < totalNumRows
+      if (!canMove) return
+      const newSelectedCell: [number, number] = [rowWithDirection, mainSelectedCell[1]]
+      setMainSelectedCell(newSelectedCell)
     }
   }
   return (
@@ -280,6 +326,7 @@ const Record = ({ row, fields, activeFilterFieldIds, sortedFieldIds, foundCells,
             multipleRecordsSelected={multipleRecordsSelected}
             onDelete={() => {onDeleteRecord(); setIsHovered(false);}}
             onTab={onTab}
+            onArrowKey={onArrowKey}
           />
         )
       })}
