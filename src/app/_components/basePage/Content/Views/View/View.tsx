@@ -134,17 +134,17 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     count: totalNumRows,
     getScrollElement: () => ref.current,
     estimateSize: () => 32,
-    overscan: 40
+    overscan: 20
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
   const startIndex = virtualRows[0]?.index ?? 0
   const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
   const dStart = useDebounced(startIndex)
-  const dTake  = 150
+  const dTake  = useDebounced(endIndex - startIndex + 1)
   const [numFetches, setNumFetches] = useState<number>(0)
   const [filtersStr, setFiltersStr] = useState<string | undefined>(undefined)
   const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
-    { viewId: view?.id ?? "", skip: dStart, take: dTake, filtersStr: filtersStr ?? "" },
+    { viewId: view?.id ?? "", skip: dStart, take: dTake, filtersStr: filtersStr ?? `r."tableId" = '${tableData?.id}'` },
     { enabled: !!tableData?.id && !!view?.id && filtersStr !== undefined, placeholderData: keepPreviousData },
   )
   const { data: recordCount, refetch: fetchNumRecords } = api.base.getNumRecords.useQuery(
