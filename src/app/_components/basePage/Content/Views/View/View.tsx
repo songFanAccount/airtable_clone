@@ -1,4 +1,4 @@
-import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData } from "../../../BasePage"
+import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData, type FilterData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
 import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { keepPreviousData } from "@tanstack/react-query";
-import { FilterOperator } from "@prisma/client";
+import { FieldType, FilterJoinType, FilterOperator } from "@prisma/client";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +25,102 @@ function useDebounced<T>(value: T, delay = 120) {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return debouncedValue;
+}
+
+function generateCellCondStr(filter: FilterData, fieldType: FieldType): string {
+  const { fieldId: id } = filter;
+  const { operator, compareVal } = filter;
+
+  switch (fieldType) {
+    case FieldType.Text:
+      switch (operator) {
+        case FilterOperator.CONTAINS:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc.value LIKE CONCAT('%', '${compareVal}', '%')
+            )
+          `;
+        case FilterOperator.NOTCONTAINS:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc.value NOT LIKE CONCAT('%', '${compareVal}', '%')
+            )
+          `;
+        case FilterOperator.EQUALTO:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc.value = '${compareVal}'
+            )
+          `;
+        case FilterOperator.NOTEMPTY:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc.value IS NOT NULL
+                AND fc.value <> ''
+            )
+          `;
+        case FilterOperator.EMPTY:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND (fc.value IS NULL OR fc.value = '')
+            )
+          `;
+        default:
+          return '';
+      }
+    case FieldType.Number:
+      switch (operator) {
+        case FilterOperator.GREATERTHAN:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc."numValue" > ${Number(compareVal)}
+            )
+          `;
+        default:
+          return `
+            EXISTS (
+              SELECT 1
+              FROM "Cell" fc
+              INNER JOIN "Field" ff ON fc."fieldId" = ff.id
+              WHERE fc."recordId" = r.id
+                AND ff.id = '${id}'
+                AND fc."numValue" < ${Number(compareVal)}
+            )
+          `;
+      }
+    default:
+      return '';
+  }
 }
 
 const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
@@ -46,23 +142,77 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const dStart = useDebounced(startIndex)
   const dTake  = 150
   const [numFetches, setNumFetches] = useState<number>(0)
-  const [polling, setPolling] = useState(false);
+  const [filtersStr, setFiltersStr] = useState<string | undefined>(undefined)
   const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
-    { viewId: view?.id ?? "", skip: dStart, take: dTake },
-    { enabled: !!tableData?.id && !!view?.id, placeholderData: keepPreviousData, refetchInterval: polling ? 500 : false },
+    { viewId: view?.id ?? "", skip: dStart, take: dTake, filtersStr: filtersStr ?? "" },
+    { enabled: !!tableData?.id && !!view?.id && filtersStr !== undefined, placeholderData: keepPreviousData },
   )
+  const { data: recordCount, refetch: fetchNumRecords } = api.base.getNumRecords.useQuery(
+    { filtersStr: filtersStr ?? ""},
+    { enabled: !!tableData?.id && !!view?.id && filtersStr !== undefined}
+  )
+  
+  function validFilter(filter: FilterData) {
+    if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
+    return filter.compareVal !== ""
+  }
   useEffect(() => {
-    if (view) void refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
-  const records = recordsObj?.records
-  const viewNumRecords = recordsObj?.totalRecordsInView
-  useEffect(() => {
-    if (viewNumRecords !== undefined) {
-      setTotalNumRows(viewNumRecords)
+    if (view && tableData) {
+      const filters: FilterData[] = view.filters.filter(filter => validFilter(filter))
+      const andStrs: string[] = []
+      const orStrs: string[] = []
+      for (const filter of filters) {
+        const fieldType = fields?.find(field => field.id === filter.fieldId)?.type
+        if (fieldType) {
+          if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter, fieldType))
+          else orStrs.push(generateCellCondStr(filter, fieldType))
+        }
+      }
+      const andClause = andStrs.length
+        ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
+        : "TRUE";
+  
+      const orClause = orStrs.length
+        ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
+        : "";
+  
+      let newFiltersStr = "";
+  
+      if (andStrs.length && orStrs.length) {
+        newFiltersStr = `
+          (r."tableId" = '${tableData.id}' AND (${andClause}))
+          OR
+          (r."tableId" = '${tableData.id}' AND (${orClause}))
+        `;
+      } else {
+        newFiltersStr = andStrs.length 
+          ? `r."tableId" = '${tableData.id}' AND (${andClause})`
+          :
+            orStrs.length
+            ? `r."tableId" = '${tableData.id}' AND (${orClause})`
+            : `r."tableId" = '${tableData.id}'`
+      }
+      if (filtersStr && filtersStr !== newFiltersStr) {
+        void fetchNumRecords();
+      }
+      void refetch();
+      setFiltersStr(newFiltersStr)
     }
-  }, [viewNumRecords])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, tableData]);
+  useEffect(() => {
+    if (filtersStr) {
+      void fetchNumRecords()
+      void refetch()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersStr])
+  const records = recordsObj?.records
+  useEffect(() => {
+    if (recordCount) {
+      setTotalNumRows(recordCount.totalRecordsInView)
+    }
+  }, [recordCount])
 
   // Cache last fetched data for better scrolling
   interface Cache { data: RecordsData, startIndex: number, endIndex: number }
@@ -101,7 +251,8 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   }
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async (_) => {
-      await utils.base.getRecords.invalidate()
+      void setTotalNumRows(prev => prev+1)
+      void fetchNumRecords()
     }
   })
   function onAddRecord() {
@@ -114,17 +265,16 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onMutate: ({ numRecords }) => {
-      setPolling(true)
       const toastId = toast.loading(`Adding ${numRecords} records…`);
       setStartTime(Date.now());
       return { toastId };
     },
     onSuccess: async (addEvent, _vars, ctx) => {
-      setPolling(false)
       const timeTakenStr = ((Date.now() - (startTime ?? 0)) / 1000).toFixed(2)
       if (startTime) {
         setStartTime(undefined);
       }
+      setTotalNumRows(prev => prev+addEvent.count)
       toast.update(ctx?.toastId, {
         render: `${addEvent.count} records, time: ${timeTakenStr}s`,
         type: "success",
@@ -134,7 +284,6 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       await utils.base.getRecords.invalidate();
     },
     onError: (err, _vars, ctx) => {
-      setPolling(false)
       toast.update(ctx?.toastId ?? "", {
         render: err?.message ?? "Failed to add records.",
         type: "error",

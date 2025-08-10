@@ -495,36 +495,6 @@ export const baseRouter = createTRPCRouter({
       return {
         count: numRecords
       }
-      // return ctx.db.$transaction(async (tx) => {
-      //   const numRecords = input.numRecords
-      //   const table = await tx.table.findUniqueOrThrow({where: {id: input.tableId}, include: {fields: true}})
-      //   const fields = table.fields
-      //   const firstNewRowNum = table.lastAddedRecordPos + 1
-      //   const recordIds = Array.from({ length: numRecords }, (_, index) => (firstNewRowNum + index).toString())
-      //   const createdRecords = await tx.record.createMany({
-      //     data: Array.from({ length: numRecords }, (_, index) => {
-      //       return {
-      //         id: recordIds[index],
-      //         rowNum: firstNewRowNum + index,
-      //         tableId: input.tableId,
-      //       }
-      //     })
-      //   })
-      //   const cellsToInsert: Prisma.CellCreateManyInput[] = []
-      //   recordIds.forEach(recordId => {
-      //     fields.forEach(field => {
-      //       const mockDataStr = getMockData(field.name, field.type)
-      //       cellsToInsert.push({
-      //         recordId,
-      //         fieldId: field.id,
-      //         value: mockDataStr,
-      //         numValue: Number(mockDataStr)
-      //       })
-      //     })
-      //   })
-      //   await tx.cell.createMany({data: cellsToInsert})
-      //   return createdRecords
-      // }, {maxWait: 2000000, timeout: 6000000})
     }),
   addNewField: protectedProcedure
     .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string()}))
@@ -737,8 +707,24 @@ export const baseRouter = createTRPCRouter({
     }
     await Promise.all(promises);
   }),
+  getNumRecords: protectedProcedure
+    .input(z.object({filtersStr: z.string()}))
+    .query(async ({ ctx, input }) => {
+      const countQueryStr = `
+        SELECT COUNT(DISTINCT r.id) AS total_records
+        FROM "Record" r
+        LEFT JOIN "Cell" c ON r.id = c."recordId"
+        LEFT JOIN "Field" f ON c."fieldId" = f.id
+        WHERE ${input.filtersStr};
+      `;
+      const [result] = await ctx.db.$queryRawUnsafe<{ total_records: number }[]>(countQueryStr);
+      const totalRecordsInView = Number(result?.total_records ?? 0)
+      return {
+        totalRecordsInView
+      }
+    }),
   getRecords: protectedProcedure
-    .input(z.object({viewId: z.string(), skip: z.number(), take: z.number()}))
+    .input(z.object({viewId: z.string(), skip: z.number(), take: z.number(), filtersStr: z.string()}))
     .query(async ({ ctx, input }) => {
         const view = await ctx.db.view.findUniqueOrThrow({
           where: {id: input.viewId},
@@ -753,38 +739,6 @@ export const baseRouter = createTRPCRouter({
           }
         })
         // RAWQUERY
-        const tableId = view.tableId
-        const filters: FilterWithField[] = view.filters.filter(filter => validFilter(filter))
-        const andStrs: string[] = []
-        const orStrs: string[] = []
-        for (const filter of filters) {
-          if (filter.joinType === FilterJoinType.AND) andStrs.push(generateCellCondStr(filter))
-          else orStrs.push(generateCellCondStr(filter))
-        }
-        const andClause = andStrs.length
-          ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
-          : "TRUE";
-
-        const orClause = orStrs.length
-          ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
-          : "";
-
-        let filtersStr = "";
-
-        if (andStrs.length && orStrs.length) {
-          filtersStr = `
-            (r."tableId" = '${tableId}' AND (${andClause}))
-            OR
-            (r."tableId" = '${tableId}' AND (${orClause}))
-          `;
-        } else {
-          filtersStr = andStrs.length 
-            ? `r."tableId" = '${tableId}' AND (${andClause})`
-            :
-              orStrs.length
-              ? `r."tableId" = '${tableId}' AND (${orClause})`
-              : `r."tableId" = '${tableId}'`
-        }
         const sorts = view.sorts
         const sortClauses = sorts.map(
           sort => `
@@ -801,23 +755,6 @@ export const baseRouter = createTRPCRouter({
         const orderByClause = sortClauses.length
           ? `${sortClauses.join(', ')}, r."rowNum" ASC`
           : 'r."rowNum" ASC';
-
-        const countQueryStr = `
-          SELECT COUNT(DISTINCT r.id) AS total_records
-          FROM "Record" r
-          INNER JOIN "Cell" c ON r.id = c."recordId"
-          INNER JOIN "Field" f ON c."fieldId" = f.id
-          WHERE ${filtersStr};
-        `;
-
-        const [result] = await ctx.db.$queryRawUnsafe<{ total_records: number }[]>(countQueryStr);
-        const totalRecordsInView = Number(result?.total_records ?? 0)
-        if (totalRecordsInView === 0) {
-          return {
-            records: [],
-            totalRecordsInView
-          }
-        }
         const queryStr = `
           SELECT
             r.id AS id,
@@ -832,9 +769,9 @@ export const baseRouter = createTRPCRouter({
               ) ORDER BY f."columnNumber"
             ) AS cells
           FROM "Record" r
-          INNER JOIN "Cell" c ON r.id = c."recordId"
-          INNER JOIN "Field" f ON c."fieldId" = f.id
-          WHERE ${filtersStr}
+          LEFT JOIN "Cell" c ON r.id = c."recordId"
+          LEFT JOIN "Field" f ON c."fieldId" = f.id
+          WHERE ${input.filtersStr}
           GROUP BY r.id, r."rowNum", r."tableId"
           ORDER BY ${orderByClause}
           LIMIT ${input.take}
@@ -906,7 +843,6 @@ export const baseRouter = createTRPCRouter({
         //   take: input.take
         // })
         return {
-          totalRecordsInView,
           records,
         }
     }),
