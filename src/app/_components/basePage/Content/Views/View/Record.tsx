@@ -68,6 +68,8 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
         if (arrowKeys.includes(key)) {
           event.preventDefault()
           onArrowKey(key as ("ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown"))
+          if (inputRef.current) inputRef.current.blur()
+          setEditing(false)
         }
       }
     }
