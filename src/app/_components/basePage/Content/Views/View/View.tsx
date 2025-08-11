@@ -324,7 +324,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   }
 
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
-  const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
+  const { mutate: addXRecords, isPending: isAddingXRecords } = api.base.addXRecords.useMutation({
     onMutate: ({ numRecords }) => {
       const toastId = toast.loading(`Adding ${numRecords} records…`);
       setStartTime(Date.now());
@@ -355,7 +355,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const xs = [10, 100, 1000, 100000]
   const xsStr = ["10", "100", "1000", "100k"]
   function onAddXRecords(x: number) {
-    if (addXRecordsStatus === "pending") return
+    if (isAddingXRecords) return
     if (tableData) addXRecords({ tableId: tableData.id, numRecords: x })
   }
 
@@ -469,7 +469,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
 
   return (
     <div className="relative w-full h-full text-[13px] bg-[#f6f8fc]" ref={containerRef}>
-      {addXRecordsStatus === "pending" && (
+      {isAddingXRecords && (
         <div className="absolute inset-0 bg-gray-400 opacity-20 z-50 flex items-center justify-center pointer-events-auto cursor-not-allowed" />
       )}
       <div className="flex flex-col h-full w-full pb-19 relative">
@@ -562,7 +562,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
               className="flex flex-row items-center w-full bg-white text-gray-500 h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
               style={{ borderColor: "#dfe2e4" }}
               onClick={onAddRecord}
-              disabled={addRecordStatus === "pending" || addXRecordsStatus === "pending"}
+              disabled={addRecordStatus === "pending" || isAddingXRecords}
             >
               <div className="min-w-[87px] w-[87px] h-full flex flex-row items-center pl-4">
                 <AddIcon className="w-5 h-5 ml-[6px]" />
@@ -583,7 +583,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
               </div>
               {xs.map((x, index) => (
                 <button key={index} className="flex flex-row items-center border-box border-r-[1px] h-full border-[#d1d1d1] hover:bg-[#f2f4f8] cursor-pointer disabled:cursor-not-allowed"
-                  disabled={addXRecordsStatus === "pending"}
+                  disabled={isAddingXRecords}
                   onClick={() => onAddXRecords(x)}
                   style={{ flex: index === 0 ? undefined : 1, width: index === 0 ? "180px" : undefined }}>
                   <span className="truncate mx-[6px]">{includedFields && includedFields.length > 2 ? `Add ${xsStr[index]} rows` : `${xsStr[index]}`}</span>
