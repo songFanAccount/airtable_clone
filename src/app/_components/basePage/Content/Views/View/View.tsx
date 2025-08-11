@@ -1,31 +1,19 @@
 import { type RecordsData, type FieldsData, type TableData, type ViewDetailedData, type CellData, type RecordData, type FilterData } from "../../../BasePage"
 import { GoPlus as AddIcon } from "react-icons/go";
-import { Loader2 as LoadingIcon } from "lucide-react";
+// import { Loader2 as LoadingIcon } from "lucide-react";
 import ColumnHeadings from "./ColumnHeadings"
 import Record from "./Record"
 import { api } from "~/trpc/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { keepPreviousData } from "@tanstack/react-query";
-import { FieldType, FilterJoinType, FilterOperator } from "@prisma/client";
+import { FieldType, FilterJoinType, FilterOperator, SortOperator } from "@prisma/client";
 import {
   useReactTable,
   getCoreRowModel,
   type ColumnDef
 } from '@tanstack/react-table'
 import { nanoid } from "nanoid";
-
-function useDebounced<T>(value: T, delay = 120) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debouncedValue;
-}
 
 function generateCellCondStr(filter: FilterData, fieldType: FieldType): string {
   const { fieldId: id } = filter;
@@ -129,35 +117,17 @@ function generateCellCondStr(filter: FilterData, fieldType: FieldType): string {
   }
 }
 
+const LIMIT = 100;
+const PAGES_AROUND = 1;
+
 const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
   const utils = api.useUtils()
   const fields: FieldsData = tableData?.fields
   const includedFields: FieldsData = fields?.filter(field => !view?.hiddenFieldIds.includes(field.id))
   const [totalNumRows, setTotalNumRows] = useState<number>(0)
 
-  // Virtualization
-  const rowVirtualizer = useVirtualizer({
-    count: totalNumRows,
-    getScrollElement: () => ref.current,
-    estimateSize: () => 32,
-    overscan: 20
-  })
-  const virtualRows = rowVirtualizer.getVirtualItems()
-  const startIndex = virtualRows[0]?.index ?? 0
-  const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
-  const dStart = useDebounced(startIndex)
-  const dTake  = useDebounced(endIndex === 0 ? 0 : endIndex - startIndex + 1)
-  const [numFetches, setNumFetches] = useState<number>(0)
   const [filtersStr, setFiltersStr] = useState<string | undefined>(undefined)
-  const { data: recordsObj, isFetching, refetch } = api.base.getRecords.useQuery(
-    { viewId: view?.id ?? "", skip: dStart, take: dTake, filtersStr: filtersStr ?? `r."tableId" = '${tableData?.id}'` },
-    { enabled: !!tableData?.id && !!view?.id && filtersStr !== undefined, placeholderData: keepPreviousData },
-  )
-  const { data: recordCount, refetch: fetchNumRecords } = api.base.getNumRecords.useQuery(
-    { filtersStr: filtersStr ?? ""},
-    { enabled: !!tableData?.id && !!view?.id && filtersStr !== undefined}
-  )
-  
+  const [sortsStr, setSortsStr] = useState<string | undefined>(undefined)
   function validFilter(filter: FilterData) {
     if (filter.operator === FilterOperator.EMPTY || filter.operator === FilterOperator.NOTEMPTY) return true
     return filter.compareVal !== ""
@@ -177,13 +147,10 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       const andClause = andStrs.length
         ? andStrs.map((str, i) => `${i > 0 ? "AND " : ""}${str}`).join(" ")
         : "TRUE";
-  
       const orClause = orStrs.length
         ? orStrs.map((str, i) => `${i > 0 ? "OR " : ""}${str}`).join(" ")
         : "";
-  
       let newFiltersStr = "";
-  
       if (andStrs.length && orStrs.length) {
         newFiltersStr = `
           (r."tableId" = '${tableData.id}' AND (${andClause}))
@@ -191,82 +158,171 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
           (r."tableId" = '${tableData.id}' AND (${orClause}))
         `;
       } else {
-        newFiltersStr = andStrs.length 
+        newFiltersStr = andStrs.length
           ? `r."tableId" = '${tableData.id}' AND (${andClause})`
-          :
-            orStrs.length
+          : orStrs.length
             ? `r."tableId" = '${tableData.id}' AND (${orClause})`
-            : `r."tableId" = '${tableData.id}'`
+            : `r."tableId" = '${tableData.id}'`;
       }
-      if (filtersStr && filtersStr !== newFiltersStr) {
-        void fetchNumRecords();
-      }
-      void refetch();
       setFiltersStr(newFiltersStr)
+      const sorts = view.sorts
+      const sortClauses = sorts.map(
+        sort => {
+          const fieldType = fields?.find(field => field.id === sort.fieldId)?.type
+          return fieldType ? `
+            (
+              SELECT ${fieldType === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
+              FROM "Cell" fc
+              WHERE fc."recordId" = r.id
+                AND fc."fieldId" = '${sort.fieldId}'
+              LIMIT 1
+            ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
+          ` : ''
+        }
+      );
+      const newSortsStr = sortClauses.length
+        ? `${sortClauses.join(', ')}, r."rowNum" ASC`
+        : 'r."rowNum" ASC';
+      setSortsStr(newSortsStr)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, tableData]);
+  }, [view, tableData])
+
+  const { data: recordCount } = api.base.getNumRecords.useQuery(
+    { filtersStr: filtersStr ?? "" },
+    { enabled: !!tableData?.id && !!view?.id && !!filtersStr }
+  )
   useEffect(() => {
-    if (filtersStr) {
-      void fetchNumRecords()
-      void refetch()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersStr])
-  const records = recordsObj?.records
-  useEffect(() => {
-    if (recordCount) {
-      setTotalNumRows(recordCount.totalRecordsInView)
-    }
+    if (recordCount) setTotalNumRows(recordCount.totalRecordsInView)
   }, [recordCount])
 
-  // Cache last fetched data for better scrolling
-  interface Cache { data: RecordsData, startIndex: number, endIndex: number }
-  const [recordsCache, setRecordsCache] = useState<Cache | undefined>(undefined)
-  useEffect(() => {
-    if (!isFetching) {
-      setRecordsCache({ data: records, startIndex: dStart, endIndex: dStart + dTake })
-      setNumFetches(numFetches + 1)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFetching])
+  // Virtualization
+  const ref = useRef<HTMLDivElement>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: totalNumRows || 0,
+    getScrollElement: () => ref.current,
+    estimateSize: () => 32,
+  })
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  const startIndex = virtualRows[0]?.index ?? 0
+  const endIndex = virtualRows[virtualRows.length - 1]?.index ?? 0
 
-  // Table setup
+  const baseInput = useMemo(() => ({
+    viewId: view?.id ?? "",
+    filtersStr: filtersStr ?? "",
+    sortsStr: sortsStr ?? "",
+    take: LIMIT,
+    skip: 0
+  }), [view?.id, filtersStr, sortsStr])
+
+  const { data } = api.base.getRecords.useInfiniteQuery(
+    baseInput,
+    {
+      getNextPageParam: (_last, pages) => String(pages.length),
+      enabled: !!view?.id && !!filtersStr
+    }
+  )
+
+  /*
+  fetchPageIntoCache:
+  skip is recalculated to skip to the start of the window, re-passed as cursor to .getRecords
+  then, update infinitedata to cache the newly fetched page along with its param
+  */
+  const fetchPageIntoCache = useCallback(async (pageIndex: number) => {
+    if (!view?.id || !filtersStr || pageIndex < 0) return;
+    const skip = pageIndex * LIMIT;
+    const input = { ...baseInput, skip };
+    const page = await utils.base.getRecords.fetch(input);
+    utils.base.getRecords.setInfiniteData(baseInput, (old) => {
+      const pages = old?.pages ? old.pages.slice() : [];
+      const params = old?.pageParams ? old.pageParams.slice() : [];
+      pages[pageIndex] = page;
+      params[pageIndex] = String(pageIndex);
+      return { pages, pageParams: params };
+    });
+  }, [utils, baseInput, view?.id, filtersStr]);
+
+  /*
+  Fetching new pages on changes:
+  Calculate the first and last page based on Tanstack's calculated start/endIndex
+  In both up and down scroll directions, extend the potential fetch range by PAGES_AROUND pages so scrolling feels more seamless
+  Then, within the fetch range, eliminate pages that have already been cached
+  Then begin fetching all pages asynchronously
+
+  Note: A delay of 200ms is added so scrolling (which causes too many startIndex/endIndex updates) doesnt init too many fetches
+  */
+  useEffect(() => {
+    if (!view?.id || !filtersStr) return;
+    const id = setTimeout(() => {
+      const firstPage = Math.floor(startIndex / LIMIT);
+      const lastPage = Math.floor(endIndex / LIMIT);
+      const neededPagesNums = new Set<number>();
+      for (let p = firstPage - PAGES_AROUND; p <= lastPage + PAGES_AROUND; p++) {
+        if (p >= 0) neededPagesNums.add(p);
+      }
+      const missingPagesNums = [...neededPagesNums].filter(pageNum => !data?.pages?.[pageNum]);
+      if (missingPagesNums.length === 0) return;
+
+      void (async () => {
+        await Promise.all(missingPagesNums.map(pageNum => fetchPageIntoCache(pageNum)));
+      })();
+    }, 200)
+    return () => clearTimeout(id)
+  }, [startIndex, endIndex, data?.pages, view?.id, filtersStr, sortsStr, fetchPageIntoCache])
+
+  const placeholder = (absIndex: number): RecordData => ({
+    id: `placeholder_${absIndex}`,
+    tableId: tableData?.id ?? "",
+    rowNum: absIndex + 1,
+    cells: []
+  } as unknown as RecordData)
+
+  /* Find the correct window to display if cached, otherwise, show placeholder record until fetched */
+  const windowData: RecordData[] = useMemo(() => {
+    const arr: RecordData[] = []
+    for (let i = startIndex; i <= endIndex; i++) {
+      const pageIdx = Math.floor(i / LIMIT)
+      const offset = i % LIMIT
+      const rec = data?.pages?.[pageIdx]?.records?.[offset]
+      arr.push(rec ?? placeholder(i))
+    }
+    return arr
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startIndex, endIndex, data?.pages, tableData?.id])
+
   const columns: ColumnDef<RecordData>[] = includedFields?.map(field => ({
     id: field.id,
     header: field.name,
-    accessorFn: row => row.cells.find(cell => cell.fieldId === field.id)?.value ?? "",
+    accessorFn: row => row.cells?.find(cell => cell.fieldId === field.id)?.value ?? "",
     meta: field
   })) ?? []
 
   const table = useReactTable({
-    data: records ?? [],
+    data: windowData,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
+
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([])
   function selectRecord(recordId: string) {
     const newRecordIds = new Set(selectedRecordIds)
-    if (newRecordIds.has(recordId)) {
-      newRecordIds.delete(recordId)
-    } else {
-      newRecordIds.add(recordId)
-    }
+    if (newRecordIds.has(recordId)) newRecordIds.delete(recordId)
+    else newRecordIds.add(recordId)
     setSelectedRecordIds([...newRecordIds])
   }
+
   const { mutate: addRecord, status: addRecordStatus } = api.base.addNewRecord.useMutation({
     onSuccess: async (_) => {
-      void setTotalNumRows(prev => prev+1)
-      void fetchNumRecords()
+      setTotalNumRows(prev => prev + 1)
+      await utils.base.getRecords.invalidate()
     }
   })
   function onAddRecord() {
     if (addRecordStatus === "pending") return
     const newRecordId = nanoid(10)
-    if (tableData && fields) {
-      addRecord({ tableId: tableData.id, newRecordId })
-    }
+    if (tableData && fields) addRecord({ tableId: tableData.id, newRecordId })
   }
+
   const [startTime, setStartTime] = useState<number | undefined>(undefined)
   const { mutate: addXRecords, status: addXRecordsStatus } = api.base.addXRecords.useMutation({
     onMutate: ({ numRecords }) => {
@@ -276,17 +332,15 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     },
     onSuccess: async (addEvent, _vars, ctx) => {
       const timeTakenStr = ((Date.now() - (startTime ?? 0)) / 1000).toFixed(2)
-      if (startTime) {
-        setStartTime(undefined);
-      }
-      setTotalNumRows(prev => prev+addEvent.count)
+      setStartTime(undefined);
+      setTotalNumRows(prev => prev + addEvent.count)
       toast.update(ctx?.toastId, {
         render: `${addEvent.count} records, time: ${timeTakenStr}s`,
         type: "success",
         isLoading: false,
         autoClose: 3000,
       });
-      await utils.base.getRecords.invalidate();
+      await utils.base.getRecords.invalidate()
     },
     onError: (err, _vars, ctx) => {
       toast.update(ctx?.toastId ?? "", {
@@ -297,14 +351,12 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
       });
       setStartTime(undefined);
     },
-  });
+  })
   const xs = [10, 100, 1000, 100000]
   const xsStr = ["10", "100", "1000", "100k"]
   function onAddXRecords(x: number) {
     if (addXRecordsStatus === "pending") return
-    if (tableData) {
-      addXRecords({ tableId: tableData.id, numRecords: x })
-    }
+    if (tableData) addXRecords({ tableId: tableData.id, numRecords: x })
   }
 
   const { mutate: deleteRecords, status: deleteStatus } = api.base.deleteRecords.useMutation({
@@ -318,22 +370,19 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     deleteRecords({ tableId: tableData.id, recordIds: selectedRecordIds.includes(callId) ? selectedRecordIds : [...selectedRecordIds, callId] })
   }
 
-  // Refs and filters
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const popover = document.querySelector('[data-popover="true"]');
-      if (ref.current && !ref.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node) && !popover?.contains(event.target as Node)) {
         setMainSelectedCell(undefined)
         setSelectedRecordIds([])
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [])
+
   const headingsRef = useRef<HTMLDivElement>(null)
   const recordRef = useRef<HTMLDivElement>(null)
 
@@ -344,12 +393,10 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
   const activeFilterFieldIds = [...new Set(filtersActive)]
   const sortedFieldIds = view?.sorts.map(sort => sort.fieldId) ?? []
   const [mainSelectedCell, setMainSelectedCell] = useState<[number, number] | undefined>(undefined)
-  // Search handling
+
   const currentCellRef = useRef<{currentSearchNum?: number, recordIndex: number, record: RecordData, cellIndex: number, lastFoundIndex: number} | undefined>(undefined)
   const [currentCell, setCurrentCell] = useState<CellData | undefined>(undefined)
-  useEffect(() => {
-    currentCellRef.current = undefined
-  }, [searchStr])
+  useEffect(() => { currentCellRef.current = undefined }, [searchStr])
   useEffect(() => {
     if (!foundRecords || foundRecords?.length === 0) {
       setCurrentCell(undefined)
@@ -367,9 +414,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
           const newCellIndex = cellIndex + direction
           if (newCellIndex >= record.cells.length || newCellIndex < 0) {
             let newRecordIndex = recordIndex + direction
-            while (foundRecords[newRecordIndex]?.cells === null) {
-              newRecordIndex += direction
-            }
+            while (foundRecords[newRecordIndex]?.cells === null) newRecordIndex += direction
             const newRecord = foundRecords[newRecordIndex]
             if (newRecord) {
               const newRecordCellIndex = direction === 1 ? 0 : newRecord.cells.length - 1
@@ -419,13 +464,13 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
     }
   }, [foundIndex, foundRecords, searchNum])
 
-  const bottomMsg = `Total: ${totalNumRows}. Loaded: ${startIndex+1} - ${endIndex+1}. Num fetches: ${numFetches}.`
+  const loadedPages = (data?.pages ?? []).filter(Boolean).length
+  const bottomMsg = `Total: ${totalNumRows}. Visible: ${startIndex+1}–${endIndex+1}. Loaded pages: ${loadedPages}.`
 
   return (
-    <div className="relative w-full h-full text-[13px] bg-[#f6f8fc]">
+    <div className="relative w-full h-full text-[13px] bg-[#f6f8fc]" ref={containerRef}>
       {addXRecordsStatus === "pending" && (
-        <div className="absolute inset-0 bg-gray-400 opacity-20 z-50 flex items-center justify-center pointer-events-auto cursor-not-allowed">
-        </div>
+        <div className="absolute inset-0 bg-gray-400 opacity-20 z-50 flex items-center justify-center pointer-events-auto cursor-not-allowed" />
       )}
       <div className="flex flex-col h-full w-full pb-19 relative">
         <div ref={headingsRef}>
@@ -443,14 +488,11 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
               {virtualRows.map((virtualRow) => {
                 const absoluteIndex = virtualRow.index;
                 const foundCells = foundRecords?.[absoluteIndex]?.cells
-                const record =
-                  (isFetching && recordsCache)
-                    ? recordsCache.data?.[absoluteIndex - recordsCache.startIndex]
-                    : records?.[absoluteIndex - dStart];
-                const startI = isFetching && recordsCache ? recordsCache.startIndex : dStart
-                const row = record && table
-                  .getRowModel()
-                  .rows[absoluteIndex - startI]!
+                const localIndex = absoluteIndex - startIndex
+                const record = windowData[localIndex]
+                const isPlaceholder = record?.id?.startsWith("placeholder_")
+                const row = !isPlaceholder ? table.getRowModel().rows[localIndex] : undefined
+
                 return (
                   <div
                     key={`row-${absoluteIndex}`}
@@ -462,7 +504,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                       width: "100%"
                     }}
                   >
-                    {record && fields && row ? (
+                    {!!record && !isPlaceholder && fields && row ? (
                       <Record
                         row={row}
                         totalNumRows={totalNumRows}
@@ -481,19 +523,15 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                           if (deleteStatus === "pending") return;
                           onDeleteSelectedRecords(record.id);
                         }}
-                        refetch={() => refetch()}
+                        refetch={() => utils.base.getRecords.invalidate()}
                       />
                     ) : (
                       <div
                         className="flex flex-row items center h-8 bg-gray-100 border-box border-b-[1px] cursor-default"
-                        style={{ 
-                          borderColor: "#dfe2e4",
-                        }}
+                        style={{ borderColor: "#dfe2e4" }}
                       >
                         <div className="flex flex-row items-center text-gray-600 w-[87px] pl-4"
-                          style={{
-                            backgroundColor: foundCells?.length ? "#fff3d3" : undefined
-                          }}
+                          style={{ backgroundColor: foundCells?.length ? "#fff3d3" : undefined }}
                         >
                           <span className="w-8 h-8 flex justify-center items-center">
                             {absoluteIndex + 1}
@@ -519,7 +557,7 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
         {tableData && view && includedFields && includedFields.length > 0 && (
           <div className="flex flex-col sticky bottom-0 border-[#dfe2e4]"
             style={{ width: includedFields ? `${includedFields.length * 180 + 87}px` : undefined,
-                     borderTopWidth: (records && records.length >= 40) ? "1px" : undefined }}>
+                     borderTopWidth: (windowData && windowData.length >= 40) ? "1px" : undefined }}>
             <button
               className="flex flex-row items-center w-full bg-white text-gray-500 h-8 hover:bg-[#f2f4f8] cursor-pointer border-box border-b-[1px] border-r-[1px] disabled:cursor-not-allowed"
               style={{ borderColor: "#dfe2e4" }}
@@ -533,11 +571,9 @@ const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum 
                 <span className="mx-[6px]">Add one empty row</span>
               </div>
               <div className="ml-[6px] flex flex-row items-center gap-2 truncate">
-                {isFetching && (
-                  <div className="flex flex-row items-center h-full flex-shrink-0">
-                    <LoadingIcon className="w-4 h-4 animate-spin" />
-                  </div>
-                )}
+                  {/* <div className="flex flex-row items-center h-full flex-shrink-0">
+                    <LoadingIcon className="w-4 h-4 animate-spin opacity-60" />
+                  </div> */}
                 <span className="flex-1 truncate pr-[6px]">{bottomMsg}</span>
               </div>
             </button>

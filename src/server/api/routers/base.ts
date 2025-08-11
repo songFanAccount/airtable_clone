@@ -724,37 +724,11 @@ export const baseRouter = createTRPCRouter({
       }
     }),
   getRecords: protectedProcedure
-    .input(z.object({viewId: z.string(), skip: z.number(), take: z.number(), filtersStr: z.string()}))
+    .input(z.object({viewId: z.string(), skip: z.number(), take: z.number(), filtersStr: z.string(), sortsStr: z.string(), cursor: z.string().nullish()}))
     .query(async ({ ctx, input }) => {
-        const view = await ctx.db.view.findUniqueOrThrow({
-          where: {id: input.viewId},
-          include: {
-            filters: {
-              include: {field: true}
-            },
-            sorts: {
-              include: {field: true},
-              orderBy: {createdAt: 'asc'}
-            }
-          }
-        })
-        // RAWQUERY
-        const sorts = view.sorts
-        const sortClauses = sorts.map(
-          sort => `
-            (
-              SELECT ${sort.field.type === FieldType.Number ? `NULLIF(fc."numValue", 0)` : "fc.value"}
-              FROM "Cell" fc
-              WHERE fc."recordId" = r.id
-                AND fc."fieldId" = '${sort.fieldId}'
-              LIMIT 1
-            ) ${sort.operator === SortOperator.INCREASING ? "ASC" : "DESC"}
-          `
-        );
-        
-        const orderByClause = sortClauses.length
-          ? `${sortClauses.join(', ')}, r."rowNum" ASC`
-          : 'r."rowNum" ASC';
+        const page = Number(input.cursor ?? 0) || 0;
+        const take = input.take;
+        const skip = page * take;
         const queryStr = `
           SELECT
             r.id AS id,
@@ -773,9 +747,9 @@ export const baseRouter = createTRPCRouter({
           LEFT JOIN "Field" f ON c."fieldId" = f.id
           WHERE ${input.filtersStr}
           GROUP BY r.id, r."rowNum", r."tableId"
-          ORDER BY ${orderByClause}
-          LIMIT ${input.take}
-          OFFSET ${input.skip};
+          ORDER BY ${input.sortsStr}
+          LIMIT ${take}
+          OFFSET ${skip};
         `;
         const records = await ctx.db.$queryRawUnsafe<RecordData[]>(queryStr, {maxWait: 2000000, timeout: 6000000});
 
