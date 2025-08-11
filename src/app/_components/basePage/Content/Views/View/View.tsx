@@ -118,7 +118,7 @@ function generateCellCondStr(filter: FilterData, fieldType: FieldType): string {
 }
 
 const LIMIT = 100;
-const PAGES_AROUND = 0;
+const PAGES_AROUND = 1;
 
 const View = ({ tableData, view, searchStr, foundIndex, foundRecords, searchNum }: { tableData: TableData, view: ViewDetailedData, searchStr: string, foundIndex?: number, foundRecords: RecordsData, searchNum: number }) => {
   const utils = api.useUtils()
