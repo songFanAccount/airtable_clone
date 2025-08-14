@@ -13,6 +13,37 @@ import { api } from "~/trpc/react";
 import { toastNoFunction, toastTODO } from "~/hooks/helpers";
 import { toast } from "react-toastify";
 
+const SingleSelectCreation = ({ selectOpts, setSelectOpts } : { selectOpts: string[], setSelectOpts: (newOpts: string[]) => void }) => {
+  return (
+    <div className="flex flex-col gap-2">
+      {
+        selectOpts.map((opt, index) => {
+          return (
+            <div key={index} className="flex flex-row gap-2">
+              <input
+                className="outline-[2px]"
+                value={opt}
+                onChange={(e) => {
+                  const newOptVals = [...selectOpts]
+                  newOptVals[index] = e.target.value
+                  setSelectOpts(newOptVals)
+                }}
+              />
+            </div>
+          )
+        })
+      }
+      <button className="cursor-pointer"
+        onClick={() => {
+          const newOpts = [...selectOpts, ""]
+          setSelectOpts(newOpts)
+        }}
+      >
+        <span>Add option</span>
+      </button>
+    </div>
+  )
+}
 const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { field : FieldData, isFirst: boolean, onlyField: boolean, isFiltered: boolean, isSortedBy: boolean }) => {
   const bg = isFiltered ? "#f9fef9" : isSortedBy ? "#fcf9f8" : "white"
   const hoverBg = isFiltered ? "#f9fef9" : isSortedBy ? "#fcf9f8" : "#f8f8f8"
@@ -110,6 +141,7 @@ const FieldCell = ({ field, isFirst, onlyField, isFiltered, isSortedBy } : { fie
 const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds } : { tableId?: string, fields: FieldsData, activeFilterFieldIds: string[], sortedFieldIds: string[] }) => {
   const [createOpen, setCreateOpen] = useState<boolean>(false)
   const [newFieldType, setNewFieldType] = useState<FieldType | undefined>(undefined)
+  const [newSelectOpts, setNewSelectOpts] = useState<string[]>(["TODO"])
   const [newFieldName, setNewFieldName] = useState<string>("")
   const utils = api.useUtils()
   const { mutate: createField, status } = api.base.addNewField.useMutation({
@@ -128,7 +160,7 @@ const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds 
   function onCreateField() {
     if (status === "pending") return
     if (tableId && newFieldType && fields) {
-      const fieldType = newFieldType === FieldType.Text ? "TEXT" : "NUMBER"
+      const fieldType = newFieldType === FieldType.Text ? "TEXT" : newFieldType === FieldType.Number ? "NUMBER" : "SINGLESELECT"
       let fieldName = newFieldName.trim()
       if (fieldName === "") {
         fieldName = newFieldType === FieldType.Text ? "Label" : "Number"
@@ -145,10 +177,18 @@ const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds 
           return
         }
       }
-      createField({ tableId: tableId, fieldName, fieldType })
-      setNewFieldName("")
-      setNewFieldType(undefined)
+      interface CreateFieldProps {
+        tableId: string,
+        fieldName: string,
+        fieldType: string,
+        selectOpts?: string[]
+      }
+      const newProps: CreateFieldProps = { tableId: tableId, fieldName, fieldType }
+      if (newFieldType === FieldType.SingleSelect) newProps.selectOpts = newSelectOpts
+      createField(newProps)
       setCreateOpen(false)
+      setNewFieldType(undefined)
+      setNewFieldName("")
     }
   }
   return (
@@ -216,6 +256,10 @@ const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds 
                       if (e.key === "Enter") onCreateField()
                     }}
                   />
+                  {
+                    newFieldType === FieldType.SingleSelect &&
+                    <SingleSelectCreation selectOpts={newSelectOpts} setSelectOpts={setNewSelectOpts}/>
+                  }
                   <div className="flex flex-row justify-end items-center w-full h-8">
                     <div className="flex flex-row items-center gap-4 h-full">
                       <button className="cursor-pointer"
@@ -252,6 +296,16 @@ const ColumnHeadings = ({ tableId, fields, activeFilterFieldIds, sortedFieldIds 
                         <NumberTypeIcon className="w-3 h-3"/>
                       </div>
                       <span>Number</span>
+                    </div>
+                  </button>
+                  <button className="flex flex-row items-center w-full px-[10px] py-2 hover:bg-[#f2f2f2] rounded-[6px] cursor-pointer"
+                    onClick={() => setNewFieldType(FieldType.SingleSelect)}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <div className="flex justify-center items-center w-4 h-4">
+                        <NumberTypeIcon className="w-3 h-3"/>
+                      </div>
+                      <span>Single Select</span>
                     </div>
                   </button>
                 </div>

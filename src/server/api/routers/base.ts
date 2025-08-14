@@ -497,7 +497,7 @@ export const baseRouter = createTRPCRouter({
       }
     }),
   addNewField: protectedProcedure
-    .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string()}))
+    .input(z.object({tableId: z.string(), fieldName: z.string(), fieldType: z.string(), selectOpts: z.array(z.string()).optional()}))
     .mutation(async ({ctx, input}) => {
       return ctx.db.$transaction(async (tx) => {
         const largestColNum = (await tx.field.findFirstOrThrow({
@@ -510,7 +510,8 @@ export const baseRouter = createTRPCRouter({
             name: input.fieldName,
             columnNumber: largestColNum+1,
             tableId: input.tableId,
-            type: input.fieldType === "TEXT" ? FieldType.Text : FieldType.Number
+            type: input.fieldType === "TEXT" ? FieldType.Text : input.fieldType === "NUMBER" ? FieldType.Number : FieldType.SingleSelect,
+            selectOpts: input.selectOpts ?? []
           }
         })
         return newField

@@ -115,31 +115,75 @@ const CellComp = ({ value, field, mainSelectedCell, isFirst, isSelected, isSelec
           onDoubleClick={() => {if (!editing) setEditing(true)}}
           onContextMenu={(e) => {e.preventDefault(); onClick(); setActionsOpen(true)}}
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={newValue}
-            tabIndex={-1}
-            autoFocus={false}
-            onFocus={(e) => {
-              if (!editing) e.target.blur()
-            }}
-            onChange={handleChange}
-            onBlur={() => {
-              setEditing(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="w-full outline-none p-[6px] relative"
-            style={{
-              cursor: editing ? "text" : "default",
-              color: "rgb(29, 31, 37)",
-              textAlign: field && field.type === FieldType.Text ? "start" : "end",
-              left: isSelected && mainSelectedCell?.[1] !== 1 && field.type === FieldType.Text ? "-2px" : 0,
-              paddingRight: field.type === FieldType.Text ? "6px" : (isSelected && !isFirst) ? "5px" : "6px",
-            }}
-          />
+          {
+            field.type === FieldType.SingleSelect
+            ?
+              <Popover.Root open={editing} onOpenChange={setEditing}>
+                <Popover.Trigger asChild>
+                  <button className="w-full h-full flex justify-start items-center cursor-pointer"
+                    onClick={() => setEditing(!editing)}
+                  >
+                    <span>{value}</span>
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content
+                    side="bottom"
+                    align="start"
+                    className="bg-white rounded-[6px] z-50 relative top-1 left-1"
+                    style={{
+                      boxShadow: "0 4px 16px 0 rgba(0, 0, 0, .25)",
+                      padding: "8px",
+                      width: "180px"
+                    }}
+                  >
+                    <div className="flex flex-col gap-2">
+                      {
+                        field.selectOpts.map((opt, index) => {
+                          return (
+                            <button key={index} className="cursor-pointer border-[1px] h-8"
+                              onClick={() => {
+                                onCellChange(opt)
+                                setNewValue(opt)
+                                setEditing(false)
+                              }}
+                            >
+                              {opt}
+                            </button>
+                          )
+                        })
+                      }
+                    </div>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+            :
+            <input
+              ref={inputRef}
+              type="text"
+              value={newValue}
+              tabIndex={-1}
+              autoFocus={false}
+              onFocus={(e) => {
+                if (!editing) e.target.blur()
+              }}
+              onChange={handleChange}
+              onBlur={() => {
+                setEditing(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="w-full outline-none p-[6px] relative"
+              style={{
+                cursor: editing ? "text" : "default",
+                color: "rgb(29, 31, 37)",
+                textAlign: field && field.type === FieldType.Text ? "start" : "end",
+                left: isSelected && mainSelectedCell?.[1] !== 1 && field.type === FieldType.Text ? "-2px" : 0,
+                paddingRight: field.type === FieldType.Text ? "6px" : (isSelected && !isFirst) ? "5px" : "6px",
+              }}
+            />
+          }
           {
             isSelected && !editing &&
             <div className="absolute w-[8px] h-[8px] border-box border-[1px] bg-white z-50"

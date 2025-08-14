@@ -90,6 +90,7 @@ export type FieldData = {
   name: string;
   id: string;
   columnNumber: number;
+  selectOpts: string[]
 }
 export type FieldsData = FieldData[] | undefined
 export type RecordData = {

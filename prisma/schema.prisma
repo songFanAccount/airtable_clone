@@ -64,6 +64,7 @@ model VerificationToken {
 enum FieldType {
     Text
     Number
+    SingleSelect
 }
 
 model Base {
@@ -104,6 +105,7 @@ model Field {
   filters Filter[] @relation("FieldFilters")
   sorts Sort[] @relation("FieldSorts")
   type          FieldType
+  selectOpts String[]
   createdAt     DateTime  @default(now())
   @@unique([tableId, name])
   @@unique([tableId, columnNumber])
